@@ -1,4 +1,5 @@
-import { Fragment, JSX as JSXInternal, VNode, ComponentChild, ComponentType, Attributes } from './framework';
+import { JSXInternal  } from './jsx';
+import { Fragment, VNode, ComponentChild, ComponentType, Attributes } from './framework';
 
 let vnodeId = 0;
 

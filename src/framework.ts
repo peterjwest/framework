@@ -1,7 +1,5 @@
 import { JSXInternal } from './jsx';
 
-export type { JSXInternal as JSX }
-
 export interface VNode<Props = {}> {
 	type: ComponentType<Props> | string;
 	props: Props & { children: ComponentChildren };
@@ -41,9 +39,20 @@ export type ComponentChild =
 	| undefined;
 export type ComponentChildren = ComponentChild[] | ComponentChild;
 
-export interface Context<T> extends preact.Provider<T> {
-	Consumer: preact.Consumer<T>;
-	Provider: preact.Provider<T>;
+export interface Consumer<T>
+	extends FunctionComponent<{
+		children: (value: T) => ComponentChildren;
+	}> {}
+
+export interface Provider<T>
+	extends FunctionComponent<{
+		value: T;
+		children?: ComponentChildren;
+	}> {}
+
+export interface Context<T> extends Provider<T> {
+	Consumer: Consumer<T>;
+	Provider: Provider<T>;
 	displayName?: string;
 }
 
@@ -58,6 +67,13 @@ export interface ClassAttributes<T> extends Attributes {
 
 export interface ErrorInfo {
 	componentStack?: string;
+}
+
+export interface PreactDOMAttributes {
+	children?: ComponentChildren;
+	dangerouslySetInnerHTML?: {
+		__html: string;
+	};
 }
 
 export interface Component<P = {}, S = {}> {
@@ -242,10 +258,6 @@ export function createVNode<
 	VNode<ClassAttributes<T> & P> |
 	VNode<ClassAttributes<T> & JSXInternal.HTMLAttributes & JSXInternal.SVGAttributes> |
 	VNode<P>;
-}
-
-export function createRef() {
-	return { current: null };
 }
 
 export function Fragment(props: RenderableProps<{}>) {
