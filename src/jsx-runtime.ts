@@ -1,76 +1,35 @@
 import { JSXInternal  } from './jsx';
-import { Fragment, VNode, ComponentChild, ComponentType, Attributes } from './framework';
+import { Fragment, ElementNode, ChildrenNodeProps, Component } from './framework';
 
-let vnodeId = 0;
+type HtmlNodeProps = JSXInternal.HTMLAttributes & JSXInternal.SVGAttributes & Record<string, any>;
 
-/**
- * @fileoverview
- * This file exports various methods that implement Babel's "automatic" JSX runtime API:
- * - jsx(type, props, key)
- * - jsxs(type, props, key)
- * - jsxDEV(type, props, key, __source, __self)
- *
- * The implementation of createVNode here is optimized for performance.
- * Benchmarks: https://esbench.com/bench/5f6b54a0b4632100a7dcd2b3
- */
-
-/**
- * JSX.Element factory used by Babel's {runtime:"automatic"} JSX transform
- */
-
-type CreateVNodeProps<P> = (
-	(
-		JSXInternal.HTMLAttributes &
-		JSXInternal.SVGAttributes &
-		Record<string, any> & { children?: ComponentChild }
-	) |
-	Attributes & P & { children?: ComponentChild }
-);
-
-function createVNode(
+function createElementNode(
 	type: string,
-	props: JSXInternal.HTMLAttributes &
-		JSXInternal.SVGAttributes &
-		Record<string, any> & { children?: ComponentChild },
-	key?: string,
-): VNode<any>;
+	props: HtmlNodeProps & ChildrenNodeProps,
+): ElementNode<any>;
 
-function createVNode<P>(
-	type: ComponentType<P>,
-	props: Attributes & P & { children?: ComponentChild },
-	key?: string,
-): VNode<any>;
+function createElementNode<Props>(
+	type: Component<Props>,
+	props: Props & ChildrenNodeProps,
+): ElementNode<any>;
 
-function createVNode<P>(
-	type: string | ComponentType<P>,
-	props: CreateVNodeProps<P>,
-	key?: string,
-): VNode<any> {
+function createElementNode<Props>(
+	type: string | Component<Props>,
+	props: (HtmlNodeProps | Props) & ChildrenNodeProps,
+): ElementNode<any> {
 	if (!props) props = {};
 
-	/** @type {VNode & { __source: any; __self: any }} */
-	const vnode = {
-		type,
-		props,
-		key,
-		_children: null,
-		_parent: null,
-		_depth: 0,
-		_dom: null,
-		_component: null,
-		constructor: undefined,
-		_original: --vnodeId,
-		_index: -1,
-		_flags: 0,
-	};
+	if (props.children && !Array.isArray(props.children)) {
+		props.children = [props.children];
+	}
 
-	return vnode;
+	return { type, props };
 }
 
 export {
-	createVNode as jsx,
-	createVNode as jsxs,
-	createVNode as jsxDEV,
+	createElementNode as jsx,
+	createElementNode as jsxs,
+	createElementNode as jsxDEV,
 	Fragment,
 };
 export type { JSXInternal as JSX };

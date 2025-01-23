@@ -1,14 +1,10 @@
-// Users who only use Preact for SSR might not specify "dom" in their lib in tsconfig.json
-/// <reference lib="dom" />
-
 import {
-	ClassAttributes,
+	Attributes,
 	Component,
 	ComponentChild,
 	ComponentType,
 	FunctionComponent,
-	PreactDOMAttributes,
-	VNode
+	ElementNode,
 } from './framework';
 
 type Defaultize<Props, Defaults> =
@@ -60,7 +56,7 @@ export namespace JSXInternal {
 					: never;
 		  }[keyof IntrinsicElements]
 		| ComponentType<P>;
-	export interface Element extends VNode<any> {}
+	export interface Element extends ElementNode<any> {}
 	export type ElementClass = Component<any, any> | FunctionComponent<any>;
 
 	export interface ElementAttributesProperty {
@@ -601,8 +597,9 @@ export namespace JSXInternal {
 	export type PictureInPictureEventHandler<Target extends EventTarget> =
 		EventHandler<TargetedPictureInPictureEvent<Target>>;
 
-	export interface DOMAttributes<Target extends EventTarget>
-		extends PreactDOMAttributes {
+	export interface DOMAttributes<Target extends EventTarget> {
+		children?: ComponentChildren;
+
 		// Image Events
 		onLoad?: GenericEventHandler<Target> | undefined;
 		onLoadCapture?: GenericEventHandler<Target> | undefined;
@@ -1210,7 +1207,7 @@ export namespace JSXInternal {
 	export type AriaRole = WAIAriaRole | DPubAriaRole;
 
 	export interface AllHTMLAttributes<RefType extends EventTarget = EventTarget>
-		extends ClassAttributes<RefType>,
+		extends Attributes,
 			DOMAttributes<RefType>,
 			AriaAttributes {
 		// Standard HTML Attributes
@@ -1456,7 +1453,7 @@ export namespace JSXInternal {
 	}
 
 	export interface HTMLAttributes<RefType extends EventTarget = EventTarget>
-		extends ClassAttributes<RefType>,
+		extends Attributes,
 			DOMAttributes<RefType>,
 			AriaAttributes {
 		// Standard HTML Attributes
