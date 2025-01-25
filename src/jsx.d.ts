@@ -36,8 +36,6 @@ interface ToggleEventInit extends EventInit {
     oldState?: string;
 }
 
-// End TS >5.2
-
 export namespace JSXInternal {
 	export type LibraryManagedAttributes<Component, Props> = Component extends {
 		defaultProps: infer Defaults;
