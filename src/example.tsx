@@ -1,8 +1,8 @@
 import util from 'util';
 
-import { Condition, List, Value, Input, ComponentChildren } from './framework';
+import { processElement, Condition, List, Value, Input, ComponentChildren, CreateState, DeriveValueListener } from './framework';
 
-function Error({ message }: { message: Value<string> }) {
+function ErrorMessage({ message }: { message: Value<string> }) {
   return <div>{message}</div>;
 }
 
@@ -12,13 +12,24 @@ function Wrapper({ children }: { children: ComponentChildren }) {
 
 let x: Input<string> | undefined = undefined;
 
-function Component({ fullName }: { fullName: Value<string>}) {
-  const search = new Input('hi');
+function NestedComponent({ query }: { query: Value<string> }, createState: CreateState) {
+  const title = createState('x');
+  const upper = query.computed((query) => query.toUpperCase());
+  const repeated = upper.computed((query) => query + query);
+  return <><h1>{title}</h1><p>{repeated}</p></>;
+}
+
+type ComponentProps = {
+  fullName: Value<string>
+}
+
+export function Component({ fullName }: ComponentProps, createState: CreateState) {
+  const search = createState('hi');
   x = search;
   // const results = search.debounce(100).computed(
   //   async (search, abortSignal) => fetch(`/search?query=${search}`, { signal: abortSignal }),
   // );
-  const results = search.debounce(100).computed((search) => ({ success: true, data: [{ name: search }, { name: search }, { name: search }] }));
+  const results = search.debounce(100).computed((search) => ({ success: true, data: Array(search.length).fill({ name: search }) }));
 
   const firstName = fullName.computed((fullName) => fullName.split(' ')[0]);
   const efficiency = Value.computed([search, results], (search, results) => results.data.length / search.length);
@@ -27,8 +38,9 @@ function Component({ fullName }: { fullName: Value<string>}) {
 
   return (
     <div>
-      <Wrapper><h1>Hello {firstName}</h1></Wrapper>
+      <Wrapper><h1>Hello {firstName} how are you?</h1></Wrapper>
       <><input class="search-box" onChange={() => search}/></>
+      <NestedComponent query={search} />
       <Condition
         if={resultsLength}
         then={() => (
@@ -46,15 +58,24 @@ function Component({ fullName }: { fullName: Value<string>}) {
                 }} />
               </>
             )}
-            else={<Error message={fullName}/>}
+            else={() => <ErrorMessage message={fullName}/>}
           />
         )}
-        else={<div>Loading!</div>}
+        else={() => <div>Loading!</div>}
       />
     </div>
   );
 }
 
-console.log(util.inspect(<Component fullName={new Value('x')} />, { depth: Infinity }));
+const component = <Component fullName={new Value('x')}/>;
+console.log(util.inspect(component, { depth: Infinity }));
+console.log(util.inspect(processElement(component), { depth: Infinity }));
 
-console.log(util.inspect(x, { depth: Infinity }));
+// console.log(util.inspect(x, { depth: Infinity }));
+
+// const y = x as unknown as Input<string>;
+// y.update('xxx');
+
+// console.log(util.inspect(x, { depth: Infinity }));
+
+
