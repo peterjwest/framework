@@ -1,13 +1,13 @@
 import util from 'util';
 
-import { processElement, Condition, List, Value, Input, ComponentChildren, CreateState, DeriveValueListener } from './framework';
+import { renderElement, Condition, List, Value, Input, ComponentChildren, CreateState } from './framework';
 
 function ErrorMessage({ message }: { message: Value<string> }) {
   return <div>{message}</div>;
 }
 
-function Wrapper({ children }: { children: ComponentChildren }) {
-  return <div>{children}</div>;
+function Section({ children }: { children: ComponentChildren }) {
+  return <section>{children}</section>;
 }
 
 let x: Input<string> | undefined = undefined;
@@ -37,16 +37,16 @@ export function Component({ fullName }: ComponentProps, createState: CreateState
   const resultsLength = results.get('data').get('length');
 
   return (
-    <div>
-      <Wrapper><h1>Hello {firstName} how are you?</h1></Wrapper>
+    <article>
+      <Section><h1>Hello {firstName} how are you?</h1></Section>
       <><input class="search-box" onChange={() => search}/></>
       <NestedComponent query={search} />
       <Condition
         if={resultsLength}
         then={() => (
-          <Condition
-            if={results.get('success')}
-            then={() => (
+          // <Condition
+          //   if={results.get('success')}
+          //   then={() => (
               <>
                 <div>
                   Found {resultsLength} results for {search}
@@ -57,19 +57,19 @@ export function Component({ fullName }: ComponentProps, createState: CreateState
                   return <div class="item">{item.get('name')} owned by {username}</div>;
                 }} />
               </>
-            )}
-            else={() => <ErrorMessage message={fullName}/>}
-          />
+          //   )}
+          //   else={() => <ErrorMessage message={fullName}/>}
+          // />
         )}
         else={() => <div>Loading!</div>}
       />
-    </div>
+    </article>
   );
 }
 
 const component = <Component fullName={new Value('x')}/>;
 console.log(util.inspect(component, { depth: Infinity }));
-console.log(util.inspect(processElement(component), { depth: Infinity }));
+console.log(util.inspect(renderElement(component), { depth: Infinity }));
 
 // console.log(util.inspect(x, { depth: Infinity }));
 

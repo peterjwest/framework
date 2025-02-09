@@ -1,5 +1,3 @@
-import util from 'util';
-
 import { JSXInternal  } from './jsx';
 
 export interface ElementNode<Props = {}> {
@@ -22,7 +20,7 @@ export type ComponentChildren = ComponentChild[] | ComponentChild;
 export type ChildrenNodeProps = { children?: ComponentChildren };
 
 export interface Component<Props = {}> {
-  (props: Props & ChildrenNodeProps, createState: CreateState): ComponentChildren;
+  (props: Props & ChildrenNodeProps, createState: CreateState): ComponentChild;
 }
 
 export function Fragment(props: ChildrenNodeProps) {
@@ -195,17 +193,22 @@ export class DeriveValueListener {
   }
 }
 
-export function processElement(component: ComponentChild, derivedListener?: DeriveValueListener) {
+export function renderElement(component: ComponentChild, derivedListener?: DeriveValueListener) {
   if (isPrimitive(component)) return component;
   if (component instanceof Value) return component;
-  // TODO: Process these
-  if (component.type === Condition || component.type === List) return component;
+  if (component.type === List) return component; // TODO: Process this
 
   if (typeof component.type === 'string' || component.type === Fragment) {
     for (const child of component.props.children) {
-      processElement(child, derivedListener);
+      renderElement(child, derivedListener);
     }
     return component;
+  }
+
+  if (component.type === Condition) {
+    return component;
+    // TODO: If true, render
+    // TODO: Setup listener to render/unrender when condition changes
   }
 
   let inputs: Input<any>[] = [];
@@ -214,24 +217,22 @@ export function processElement(component: ComponentChild, derivedListener?: Deri
     inputs.push(input);
     return input;
   }
-  const processedChildren = childrenToArray(component.type(component.props, createState));
+  const processedChild = component.type(component.props, createState);
   const derivedMap: Map<Value<any>, Value<any>> = derivedListener ? derivedListener.extract() : new Map();
   const values = permuteValues(Array.from(derivedMap.values()).concat(inputs));
 
-  console.log('🥭', util.inspect({
-    type: component.type,
-    inputs,
-    derivedMap,
-    permutedValues: values,
-    // processedChildren,
-  }, { depth: Infinity }));
+  // console.log('🥭', {
+  //   type: component.type,
+  //   inputs,
+  //   derivedMap,
+  //   permutedValues: values,
+  //   // processedChild,
+  // });
 
   // TODO: While rendering HTML, iterate through outputs and identify binds
 
   const newListener = new DeriveValueListener(values, derivedListener)
-  for (const child of processedChildren) {
-    processElement(child as JSXInternal.Element, newListener);
-  }
+  renderElement(processedChild as JSXInternal.Element, newListener);
 
-  return processedChildren;
+  return processedChild;
 }
