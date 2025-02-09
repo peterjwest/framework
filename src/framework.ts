@@ -15,6 +15,10 @@ function isPrimitive(value: any): value is Primitive {
   return PRIMITIVES.has(typeof value);
 }
 
+function isCondition(element: ElementNode<any>): element is ElementNode<ConditionProps>{
+  return element.type === Condition;
+}
+
 export type ComponentChild = ElementNode<any> | Value<any> | Primitive;
 export type ComponentChildren = ComponentChild[] | ComponentChild;
 export type ChildrenNodeProps = { children?: ComponentChildren };
@@ -71,8 +75,8 @@ type ExtractValues<Type extends Value<unknown>[]> = {
 export class Value<Type> {
   protected value: Type;
   dependents: Set<ComputedValue<unknown>> = new Set();
-  // dependencies: Set<Value<unknown>> = new Set();
   deriveListeners: Array<(value: Value<any>, computed: Value<any>) => void> = [];
+  updateListeners: Array<(value: any) => void> = [];
 
   constructor(value: Type) {
     this.value = value;
@@ -85,7 +89,6 @@ export class Value<Type> {
     const value = new ComputedValue(() => compute(...inputs.map((value) => value.value) as any));
     for (const input of inputs) {
       input.dependents.add(value);
-      // value.dependencies.add(input);
     }
     return value;
   }
@@ -98,24 +101,32 @@ export class Value<Type> {
     return computed;
   }
 
+  addUpdateListener(compute: (value: Type) => void) {
+    this.updateListeners.push(compute);
+    compute(this.value);
+  }
+
+  addDeriveListener(listener: (value: Value<any>, computed: Value<any>) => void) {
+    this.deriveListeners.push(listener);
+  }
+
   get<Key extends keyof Type>(path: Key): Value<Type[Key]> {
     return this.computed((value) => value[path]);
+  }
+
+  update(value: Type) {
+    this.value = value;
+    for (const dependent of this.dependents) {
+      dependent.recompute();
+    }
+    for (const listener of this.updateListeners) {
+      listener(this.value);
+    }
   }
 
   debounce(time: number) {
     // TODO: setup timers to update computed value
     return this;
-  }
-
-  update(value: Type) {
-    this.value = value;
-    for (const value of this.dependents) {
-      value.recompute();
-    }
-  }
-
-  addDeriveListener(listener: (value: Value<any>, computed: Value<any>) => void) {
-    this.deriveListeners.push(listener);
   }
 }
 
@@ -135,10 +146,11 @@ export class ComputedValue<Type> extends Value<Type> {
 
 export class Input<Type> extends Value<Type> {}
 
+// TODO: Support raw components
 interface ConditionProps {
   if: Value<boolean | number>,
-  then?: (() => ComponentChild) | ComponentChild,
-  else?: (() => ComponentChild) | ComponentChild,
+  then?: () => ComponentChild,
+  else?: () => ComponentChild,
 }
 
 export function Condition(props: ConditionProps): ElementNode<ConditionProps> {
@@ -170,7 +182,7 @@ export function permuteValues(inputs: Input<any>[], values: Value<any>[] = []) {
 
 export class DeriveValueListener {
   children: Set<DeriveValueListener> = new Set();
-  derived = new Map<Value<any>, Value<any>>();
+  derived: Map<Value<any>, Value<any>> = new Map();
 
   addValue = (value: Value<any>, derived: Value<any>) => {
     this.derived.set(value, derived);
@@ -193,22 +205,40 @@ export class DeriveValueListener {
   }
 }
 
-export function renderElement(component: ComponentChild, derivedListener?: DeriveValueListener) {
-  if (isPrimitive(component)) return component;
-  if (component instanceof Value) return component;
-  if (component.type === List) return component; // TODO: Process this
+export function renderElement(element: ComponentChild, derivedListener?: DeriveValueListener) {
+  if (isPrimitive(element)) return element;
+  if (element instanceof Value) return element;
+  if (element.type === List) return element; // TODO: Process this
 
-  if (typeof component.type === 'string' || component.type === Fragment) {
-    for (const child of component.props.children) {
+  if (typeof element.type === 'string' || element.type === Fragment) {
+    for (const child of element.props.children) {
       renderElement(child, derivedListener);
     }
-    return component;
+    return element;
   }
 
-  if (component.type === Condition) {
-    return component;
+  if (isCondition(element)) {
+    const condition: ElementNode<ConditionProps> = element;
+    // TODO: Capture unrender
+    let unrender: (() => void) | undefined;
+    let prevValue: boolean | undefined;
+    condition.props.if.addUpdateListener((value) => {
+      if (prevValue !== Boolean(value)) {
+        const block = value ? condition.props.then : condition.props.else;
+        if (unrender) {
+          unrender();
+          unrender = undefined;
+        }
+        if (block) {
+          const component: ElementNode<{}> = { type: block, props: { children: [] }};
+          unrender = renderElement(component, derivedListener);
+        }
+        prevValue = Boolean(value);
+      }
+    });
     // TODO: If true, render
     // TODO: Setup listener to render/unrender when condition changes
+      // renderElement, passing in derivedListener
   }
 
   let inputs: Input<any>[] = [];
@@ -217,14 +247,14 @@ export function renderElement(component: ComponentChild, derivedListener?: Deriv
     inputs.push(input);
     return input;
   }
-  const processedChild = component.type(component.props, createState);
-  const derivedMap: Map<Value<any>, Value<any>> = derivedListener ? derivedListener.extract() : new Map();
-  const values = permuteValues(Array.from(derivedMap.values()).concat(inputs));
+  const processedChild = element.type(element.props, createState);
+  const derivedMapping: Map<Value<any>, Value<any>> = derivedListener ? derivedListener.extract() : new Map();
+  const values = permuteValues(Array.from(derivedMapping.values()).concat(inputs));
 
   // console.log('🥭', {
   //   type: component.type,
   //   inputs,
-  //   derivedMap,
+  //   derivedMapping,
   //   permutedValues: values,
   //   // processedChild,
   // });
@@ -232,7 +262,12 @@ export function renderElement(component: ComponentChild, derivedListener?: Deriv
   // TODO: While rendering HTML, iterate through outputs and identify binds
 
   const newListener = new DeriveValueListener(values, derivedListener)
-  renderElement(processedChild as JSXInternal.Element, newListener);
+  renderElement(processedChild, newListener);
+
+  // TODO: Return unrender:
+  //  - decouple DeriveValueListener
+  //  - decouple derivedMapping
+  //  - remove effects
 
   return processedChild;
 }
