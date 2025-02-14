@@ -8,13 +8,17 @@ function Section({ children }: { children: ComponentChildren }) {
   return <section>{children}</section>;
 }
 
-let x: Input<string> | undefined = undefined;
-
 function NestedComponent({ query }: { query: Value<string> }, createState: CreateState) {
   const title = createState('x');
   const upper = query.computed((query) => query.toUpperCase());
-  const repeated = upper.computed((query) => query + query);
-  return <><h1>{title}</h1><p>{repeated}</p></>;
+  const repeated = upper.computed((query) => `${query} ${query} ${query}`);
+  return <>
+    <h1 class="title">{title}</h1>
+    <Condition
+      if={repeated.computed((value) => value.length)}
+      then={() => <p class="repeated">{repeated}</p>}
+    />
+  </>;
 }
 
 type ComponentProps = {
@@ -23,32 +27,40 @@ type ComponentProps = {
 
 export function Component({ fullName }: ComponentProps, createState: CreateState) {
   const search = createState('hi');
-  (window as any).search = search;
+  const count = createState(1);
   // const results = search.debounce(100).computed(
   //   async (search, abortSignal) => fetch(`/search?query=${search}`, { signal: abortSignal }),
   // );
-  const results = search.debounce(100).computed((search) => ({ success: true, data: Array(search.length).fill({ name: search }) }));
+  const results = Value.computed([search.debounce(100), count], (search, count) => ({ success: true, data: Array(count).fill({ name: search }) }));
 
   const firstName = fullName.computed((fullName) => fullName.split(' ')[0]);
-  const efficiency = Value.computed([search, results], (search, results) => results.data.length / search.length);
+  const ratio = Value.computed([search, count], (search, count) => search.length / count);
 
   const resultsLength = results.get('data').get('length');
 
   return (
     <article>
       <Section><h1>Hello {firstName} how are you?</h1></Section>
-      <><input class="search-box" onChange={() => search}/></>
+      <>
+        {/* TODO: Support attributes */}
+        <input class="search-box" value={Value.extract(search)} onChange={(event) => {
+          search.update((event.target as HTMLInputElement).value);
+        }}/>
+        <input type="number" class="search-box" value={Value.extract(count)} onChange={(event) => {
+          count.update(Number((event.target as HTMLInputElement).value));
+        }}/>
+      </>
       <NestedComponent query={search} />
       <Condition
         if={resultsLength}
         then={() => (
           <Condition
-            if={results.get('success')}
+            if={count}
             then={() => (
               <>
                 <div>
                   Found {resultsLength} results for {search}
-                  <pre>Efficiency: {efficiency}</pre>
+                  <pre>Ratio: {ratio}</pre>
                 </div>
                 <List data={results.get('data')} element={(item) => {
                   const username = fullName.computed((fullName) => fullName.toLowerCase());

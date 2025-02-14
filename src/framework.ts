@@ -100,7 +100,7 @@ export class Value<Type> {
   protected value: Type;
   dependents: Set<ComputedValue<unknown>> = new Set();
   deriveListeners: Array<(value: Value<any>, computed: Value<any>) => void> = [];
-  updateListeners: Array<(value: any) => void> = [];
+  updateListeners: Set<(value: any) => void> = new Set();
 
   constructor(value: Type) {
     this.value = value;
@@ -130,8 +130,12 @@ export class Value<Type> {
   }
 
   addUpdateListener(compute: (value: Type) => void) {
-    this.updateListeners.push(compute);
+    this.updateListeners.add(compute);
     compute(this.value);
+  }
+
+  removeUpdateListener(compute: (value: Type) => void) {
+    this.updateListeners.delete(compute);
   }
 
   addDeriveListener(listener: (value: Value<any>, computed: Value<any>) => void) {
@@ -260,14 +264,19 @@ export function renderElement(
     return [() => textNode.remove(), childIndex.computed((value) => value + 1)];
   }
 
+  // TODO: Strong typing?
   if (element instanceof Value) {
     const textNode = document.createTextNode('');
-    element.addUpdateListener((value) => {
+    const updateListener = (value: string) => {
       textNode.textContent = value;
-    });
+    }
+    element.addUpdateListener(updateListener);
     insertAtIndex(parentElement, childIndex, textNode);
-    // TODO: Remove listener
-    return [() => textNode.remove(), childIndex.computed((value) => value + 1)];
+    const unrender = () => {
+      element.removeUpdateListener(updateListener);
+      textNode.remove();
+    }
+    return [unrender, childIndex.computed((value) => value + 1)];
   }
 
   if (element.type === List) return [undefined, childIndex]; // TODO: Process this
@@ -286,13 +295,24 @@ export function renderElement(
 
   if (typeof element.type === 'string') {
     const elementNode = document.createElement(element.type);
-    insertAtIndex(parentElement, childIndex, elementNode);
+    for (const attr in element.props) {
+      if (attr !== 'children' && attr !== 'onChange') {
+        elementNode.setAttribute(attr, element.props[attr])
+      }
+    }
+    if (element.props.onChange) {
+      // TODO: Unregister
+      elementNode.addEventListener('change', element.props.onChange);
+      elementNode.addEventListener('input', element.props.onChange);
+    }
 
     let nextChildIndex = new Value(0);
     for (const child of element.props.children) {
       const [_, childIndex] = renderElement(child, elementNode, nextChildIndex, derivedListener);
       nextChildIndex = childIndex;
     }
+
+    insertAtIndex(parentElement, childIndex, elementNode);
 
     return [() => elementNode.remove(), childIndex.computed((index) => index + 1)];
   }
@@ -301,21 +321,21 @@ export function renderElement(
     const component: ElementNode<ConditionProps> = element;
 
     const nextChildIndex = new Value(0);
-    let unrender: Unrender | undefined;
+    let unrenderBlock: Unrender | undefined;
     let lastCondition: boolean | undefined;
-    component.props.if.addUpdateListener((condition) => {
+
+    const updateListener = (condition: number | boolean) => {
       if (lastCondition !== Boolean(condition)) {
         const block = condition ? component.props.then : component.props.else;
-        if (unrender) {
-          unrender();
-          unrender = undefined;
+        if (unrenderBlock) {
+          unrenderBlock();
+          unrenderBlock = undefined;
         }
 
-        const nextChildIndex = new Value(0);
         if (block) {
           const component: ElementNode<{}> = { type: block, props: { children: [] }};
           let returnedChildIndex: Value<number>;
-          [unrender, returnedChildIndex] = renderElement(component, parentElement, childIndex, derivedListener);
+          [unrenderBlock, returnedChildIndex] = renderElement(component, parentElement, childIndex, derivedListener);
           nextChildIndex.update(Value.extract(returnedChildIndex))
         } else {
           nextChildIndex.update(Value.extract(childIndex));
@@ -323,10 +343,19 @@ export function renderElement(
 
         lastCondition = Boolean(condition);
       }
-    });
-    return [() => { if (unrender) unrender(); }, nextChildIndex];
+    };
+
+    component.props.if.addUpdateListener(updateListener);
+
+    const unrender = () => {
+      component.props.if.removeUpdateListener(updateListener);
+      if (unrenderBlock) unrenderBlock();
+    };
+
+    return [unrender, nextChildIndex];
   }
 
+  // TODO: Make this work globally i.e. in conditions and loops
   let inputs: Input<any>[] = [];
   const createState = <Type>(value: Type) => {
     const input = new Input<Type>(value);
