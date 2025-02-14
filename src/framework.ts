@@ -1,5 +1,33 @@
 import { JSXInternal  } from './jsx';
 
+// interface FakeTextNode {
+//   textContent: string;
+// }
+
+// class FakeHTMLElement {
+//   tagName: string;
+//   children: (FakeHTMLElement | Text)[] = [];
+
+//   constructor(tagName: string) {
+//     this.tagName = tagName;
+//   }
+
+//   appendChild(element: FakeHTMLElement | Text) {
+//     this.children.push(element);
+//   }
+
+//   insertBefore(element: FakeHTMLElement | Text, beforeChild: FakeHTMLElement | Text) {
+//     const index = this.children.findIndex((child) => child === beforeChild);
+//     if (index === -1) throw new Error('Child not found');
+//     this.children.splice(index, 0, element)
+//   }
+// }
+
+// export const document = {
+//   createElement: (tagName: string): HTMLElement => new HTMLElement(tagName),
+//   createTextNode: (textContent: string): Text => ({ textContent }),
+// };
+
 export interface ElementNode<Props = {}> {
   type: Component<Props> | string;
   props: Props & { children: ComponentChild[] };
@@ -13,10 +41,6 @@ type Primitive = string | number | bigint | boolean | null | undefined;
 
 function isPrimitive(value: any): value is Primitive {
   return PRIMITIVES.has(typeof value);
-}
-
-function isCondition(element: ElementNode<any>): element is ElementNode<ConditionProps>{
-  return element.type === Condition;
 }
 
 export type ComponentChild = ElementNode<any> | Value<any> | Primitive;
@@ -80,6 +104,10 @@ export class Value<Type> {
 
   constructor(value: Type) {
     this.value = value;
+  }
+
+  static extract<Type>(value: Value<Type>) {
+    return value.value;
   }
 
   static computed<Inputs extends Value<unknown>[], ResultType>(
@@ -205,40 +233,98 @@ export class DeriveValueListener {
   }
 }
 
-export function renderElement(element: ComponentChild, derivedListener?: DeriveValueListener) {
-  if (isPrimitive(element)) return element;
-  if (element instanceof Value) return element;
-  if (element.type === List) return element; // TODO: Process this
 
-  if (typeof element.type === 'string' || element.type === Fragment) {
-    for (const child of element.props.children) {
-      renderElement(child, derivedListener);
-    }
-    return element;
+export function insertAtIndex(parent: HTMLElement, indexValue: Value<number>, element: HTMLElement | Text) {
+  const index = Value.extract(indexValue);
+  if (index >= parent.children.length) {
+    parent.appendChild(element);
+  } else {
+    parent.insertBefore(element, parent.children[index]);
+  }
+}
+
+
+type Unrender = () => void;
+
+export function renderElement(
+  element: ComponentChild,
+  parentElement: HTMLElement,
+  childIndex: Value<number> = new Value(0),
+  derivedListener?: DeriveValueListener,
+): [Unrender | undefined, Value<number>] {
+
+  if (isPrimitive(element)) {
+    // TODO: Cast properly
+    const textNode = document.createTextNode(element ? String(element) : '');
+    insertAtIndex(parentElement, childIndex, textNode);
+    return [() => textNode.remove(), childIndex.computed((value) => value + 1)];
   }
 
-  if (isCondition(element)) {
-    const condition: ElementNode<ConditionProps> = element;
-    // TODO: Capture unrender
-    let unrender: (() => void) | undefined;
-    let prevValue: boolean | undefined;
-    condition.props.if.addUpdateListener((value) => {
-      if (prevValue !== Boolean(value)) {
-        const block = value ? condition.props.then : condition.props.else;
+  if (element instanceof Value) {
+    const textNode = document.createTextNode('');
+    element.addUpdateListener((value) => {
+      textNode.textContent = value;
+    });
+    insertAtIndex(parentElement, childIndex, textNode);
+    // TODO: Remove listener
+    return [() => textNode.remove(), childIndex.computed((value) => value + 1)];
+  }
+
+  if (element.type === List) return [undefined, childIndex]; // TODO: Process this
+
+  if (element.type === Fragment) {
+    const unrenders: Unrender[] = [];
+    let nextChildIndex = childIndex;
+    for (const child of element.props.children) {
+      const [unrender, childIndex] = renderElement(child, parentElement, nextChildIndex, derivedListener);
+      if (unrender) unrenders.push(unrender);
+      nextChildIndex = childIndex;
+    }
+
+    return [() => { for (const unrender of unrenders) unrender(); }, nextChildIndex];
+  }
+
+  if (typeof element.type === 'string') {
+    const elementNode = document.createElement(element.type);
+    insertAtIndex(parentElement, childIndex, elementNode);
+
+    let nextChildIndex = new Value(0);
+    for (const child of element.props.children) {
+      const [_, childIndex] = renderElement(child, elementNode, nextChildIndex, derivedListener);
+      nextChildIndex = childIndex;
+    }
+
+    return [() => elementNode.remove(), childIndex.computed((index) => index + 1)];
+  }
+
+  if (element.type === Condition) {
+    const component: ElementNode<ConditionProps> = element;
+
+    const nextChildIndex = new Value(0);
+    let unrender: Unrender | undefined;
+    let lastCondition: boolean | undefined;
+    component.props.if.addUpdateListener((condition) => {
+      if (lastCondition !== Boolean(condition)) {
+        const block = condition ? component.props.then : component.props.else;
         if (unrender) {
           unrender();
           unrender = undefined;
         }
+
+        const nextChildIndex = new Value(0);
         if (block) {
           const component: ElementNode<{}> = { type: block, props: { children: [] }};
-          unrender = renderElement(component, derivedListener);
+          let returnedChildIndex: Value<number>;
+          [unrender, returnedChildIndex] = renderElement(component, parentElement, childIndex, derivedListener);
+          nextChildIndex.update(Value.extract(returnedChildIndex))
+        } else {
+          nextChildIndex.update(Value.extract(childIndex));
         }
-        prevValue = Boolean(value);
+
+        lastCondition = Boolean(condition);
       }
     });
-    // TODO: If true, render
-    // TODO: Setup listener to render/unrender when condition changes
-      // renderElement, passing in derivedListener
+    return [() => { if (unrender) unrender(); }, nextChildIndex];
   }
 
   let inputs: Input<any>[] = [];
@@ -251,23 +337,13 @@ export function renderElement(element: ComponentChild, derivedListener?: DeriveV
   const derivedMapping: Map<Value<any>, Value<any>> = derivedListener ? derivedListener.extract() : new Map();
   const values = permuteValues(Array.from(derivedMapping.values()).concat(inputs));
 
-  // console.log('🥭', {
-  //   type: component.type,
-  //   inputs,
-  //   derivedMapping,
-  //   permutedValues: values,
-  //   // processedChild,
-  // });
+  const newListener = new DeriveValueListener(values, derivedListener);
+  const [unrender, nextChildIndex] = renderElement(processedChild, parentElement, childIndex, newListener);
 
-  // TODO: While rendering HTML, iterate through outputs and identify binds
-
-  const newListener = new DeriveValueListener(values, derivedListener)
-  renderElement(processedChild, newListener);
-
-  // TODO: Return unrender:
+  // TODO: Add to unrender:
   //  - decouple DeriveValueListener
   //  - decouple derivedMapping
   //  - remove effects
 
-  return processedChild;
+  return [unrender, nextChildIndex];
 }

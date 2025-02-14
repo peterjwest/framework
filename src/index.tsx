@@ -1,5 +1,3 @@
-import util from 'util';
-
 import { renderElement, Condition, List, Value, Input, ComponentChildren, CreateState } from './framework';
 
 function ErrorMessage({ message }: { message: Value<string> }) {
@@ -25,7 +23,7 @@ type ComponentProps = {
 
 export function Component({ fullName }: ComponentProps, createState: CreateState) {
   const search = createState('hi');
-  x = search;
+  (window as any).search = search;
   // const results = search.debounce(100).computed(
   //   async (search, abortSignal) => fetch(`/search?query=${search}`, { signal: abortSignal }),
   // );
@@ -44,22 +42,22 @@ export function Component({ fullName }: ComponentProps, createState: CreateState
       <Condition
         if={resultsLength}
         then={() => (
-          // <Condition
-          //   if={results.get('success')}
-          //   then={() => (
+          <Condition
+            if={results.get('success')}
+            then={() => (
               <>
                 <div>
                   Found {resultsLength} results for {search}
-                  Efficiency: {efficiency}
+                  <pre>Efficiency: {efficiency}</pre>
                 </div>
                 <List data={results.get('data')} element={(item) => {
                   const username = fullName.computed((fullName) => fullName.toLowerCase());
                   return <div class="item">{item.get('name')} owned by {username}</div>;
                 }} />
               </>
-          //   )}
-          //   else={() => <ErrorMessage message={fullName}/>}
-          // />
+            )}
+            else={() => <ErrorMessage message={fullName}/>}
+          />
         )}
         else={() => <div>Loading!</div>}
       />
@@ -67,15 +65,4 @@ export function Component({ fullName }: ComponentProps, createState: CreateState
   );
 }
 
-const component = <Component fullName={new Value('x')}/>;
-console.log(util.inspect(component, { depth: Infinity }));
-console.log(util.inspect(renderElement(component), { depth: Infinity }));
-
-// console.log(util.inspect(x, { depth: Infinity }));
-
-// const y = x as unknown as Input<string>;
-// y.update('xxx');
-
-// console.log(util.inspect(x, { depth: Infinity }));
-
-
+renderElement(<Component fullName={new Value('x')}/>, document.body);
