@@ -1,5 +1,5 @@
 import path from 'path';
-import { defineConfig } from 'vite';
+import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   base: './',
@@ -14,4 +14,10 @@ export default defineConfig({
       { find: '@app', replacement: path.resolve(__dirname, 'src') },
     ],
   },
+  test: {
+    watch: false,
+    exclude: [
+      'preact'
+    ]
+  }
 });
