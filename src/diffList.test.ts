@@ -1,7 +1,7 @@
 import { describe, test } from 'vitest'
 import assert from 'assert';
 
-import diffList from './diffList';
+import diffList, { Item } from './diffList';
 
 function expandList(list: number[]) {
   return list.map((id) => ({ id }));
@@ -104,5 +104,30 @@ describe('diffList', () => {
       ['remove', 1],
       ['remove', 0],
     ]);
+  });
+
+  test('Removes some with missing keys', () => {
+    const A = [{}, { id: 2 }, { id: 3 }, {}];
+    const B = [{ id: 2}, {}];
+
+    assert.deepStrictEqual(diffList(A, B, 'id'), [
+      ['remove', 3],
+      ['remove', 2],
+      ['move', 1, 0],
+    ]);
+  });
+
+  test('Replaces all with no keys', () => {
+    const A: Array<{ id?: number, x: number }> = [{ x: 1 }, { x: 2 }, { x: 3 }];
+    const B: Array<{ id?: number, x: number }> = [{ x: 1 }, { x: 2 }, { x: 3 }];
+
+    assert.deepStrictEqual(diffList(A, B, 'id'), []);
+  });
+
+  test('Removes one with no keys', () => {
+    const A: Array<{ id?: number, x: number }> = [{ x: 1 }, { x: 2 }, { x: 3 }];
+    const B: Array<{ id?: number, x: number }> = [{ x: 1 }, { x: 2 }];
+
+    assert.deepStrictEqual(diffList(A, B, 'id'), [['remove', 2]]);
   });
 });
