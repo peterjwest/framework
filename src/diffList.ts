@@ -1,8 +1,26 @@
 /** Item in a list which contains a key */
 export type Item<Key extends string> = { [ItemKey in Key]?: any }
 
-/** Possible list manipulation actions */
-type Action = ['move', number, number] | ['add', number] | ['remove', number];
+/** Expands a named type to show its contents */
+export type Expand<Type> = Type extends infer Obj ? { [Key in keyof Obj]: Obj[Key] } : never;
+
+/** Takes a string tuple and inverts it to an object */
+type InvertTuple<Type extends readonly string[]> = {
+  [Key in (keyof Type & `${number}`) as Type[Key]]: Key
+}
+
+/** Creates an enum from a string tuple */
+export function createEnumNumeric<const T extends readonly string[]>(arr: T): Expand<InvertTuple<T>> {
+  return Object.fromEntries(arr.map((value, index) => [value, index])) as Expand<InvertTuple<T>>;
+}
+
+export const ACTIONS = createEnumNumeric(['move', 'add', 'remove', 'replace']);
+
+type MoveAction = [typeof ACTIONS.move, number, number];
+type AddAction = [typeof ACTIONS.add, number];
+type RemoveAction = [typeof ACTIONS.remove, number];
+type ReplaceAction = [typeof ACTIONS.replace, number, number];
+type Action = MoveAction | AddAction | RemoveAction | ReplaceAction;
 
 function getItemKey<Key extends string>(item: Item<Key>, key: Key) {
   const itemKey = item[key];
@@ -38,29 +56,29 @@ export default function diffList<Key extends string>(currentList: Item<Key>[], n
 
   const nextKeyMap = createKeyMap(nextList, key);
 
-  /** List of removed items, included ones to be reassigned */
+  /** List of removed items, including ones to be replaced */
   const removedItemsList = [];
-  for (let index = 0; index < currentList.length; index++) {
-    const itemKey = getItemKey(currentList[index], key);
+  for (let currentIndex = 0; currentIndex < currentList.length; currentIndex++) {
+    const itemKey = getItemKey(currentList[currentIndex], key);
     const nextIndex = nextKeyMap.get(itemKey);
     if (nextIndex === undefined) {
-      removedItemsList.push(index);
+      removedItemsList.push(currentIndex);
     }
   }
 
   const addedCount = nextList.length - (currentList.length - removedItemsList.length);
 
-  /** The number of removed items which can be reassigned to added items */
-  const reassignCount = Math.min(addedCount, removedItemsList.length);
+  /** The number of removed items which can be replaced by added items */
+  const replaceCount = Math.min(addedCount, removedItemsList.length);
 
-  /** Set of removed items, excluding reassignments */
-  const removedItems = new Set(removedItemsList.slice(reassignCount));
+  /** Set of removed items, excluding replacements */
+  const removedItems = new Set(removedItemsList.slice(replaceCount));
 
   const prunedCurrentList: Item<Key>[] = [];
   // Iterate backwards to avoid each change affecting the indexes of the next
   for (let currentIndex = currentList.length - 1; currentIndex >= 0; currentIndex--) {
     if (removedItems.has(currentIndex)) {
-      actions.push(['remove', currentIndex]);
+      actions.push([ACTIONS.remove, currentIndex]);
     } else {
       prunedCurrentList.push(currentList[currentIndex]);
     }
@@ -69,15 +87,19 @@ export default function diffList<Key extends string>(currentList: Item<Key>[], n
 
   const currentKeyMap = createKeyMap(prunedCurrentList, key);
 
-  // Create a set of additions
+  // Create a set of additions, excluding replacements
   const addedItems = new Set<number>();
   let added = 0;
   for (let nextIndex = 0; nextIndex < nextList.length; nextIndex++) {
     const currentIndex = currentKeyMap.get(getItemKey(nextList[nextIndex], key));
 
     if (currentIndex === undefined) {
+      if (added >= replaceCount) {
+        addedItems.add(nextIndex);
+      } else {
+        actions.push([ACTIONS.replace, removedItemsList[added], nextIndex])
+      }
       added++;
-      if (added > reassignCount) addedItems.add(nextIndex);
     }
   }
 
@@ -110,21 +132,21 @@ export default function diffList<Key extends string>(currentList: Item<Key>[], n
   let currentIndex = maxDiffIndex(transformMap);
   while (currentIndex !== undefined) {
     const nextIndex = transformMap.get(currentIndex) as number;
-    actions.push(['move', currentIndex, nextIndex]);
+    actions.push([ACTIONS.move, currentIndex, nextIndex]);
 
     // Move the intend item, then update all affected item indexes
-    let replaceValue = nextIndex;
+    let substituteIndex = nextIndex;
     const direction = nextIndex - currentIndex > 0 ? 1 : -1;
     for (let index = nextIndex; direction === 1 ? index >= currentIndex : index <= currentIndex; index -= direction) {
-      const value = transformMap.get(index) as number;
-      transformMap.set(index, replaceValue);
-      replaceValue = value;
+      const mappedIndex = transformMap.get(index) as number;
+      transformMap.set(index, substituteIndex);
+      substituteIndex = mappedIndex;
     }
     currentIndex = maxDiffIndex(transformMap);
   }
 
   for (const index of addedItems) {
-    actions.push(['add', index])
+    actions.push([ACTIONS.add, index])
   }
 
   return actions;

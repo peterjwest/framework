@@ -1,7 +1,7 @@
 import { describe, test } from 'vitest'
 import assert from 'assert';
 
-import diffList, { Item } from './diffList';
+import diffList, { ACTIONS } from './diffList';
 
 function expandList(list: number[]) {
   return list.map((id) => ({ id }));
@@ -12,7 +12,7 @@ describe('diffList', () => {
     const A = expandList([1, 2, 3, 4, 5]);
     const B = expandList([2, 3, 4, 5, 6]);
 
-    assert.deepStrictEqual(diffList(A, B, 'id'), [['move', 0, 4]]);
+    assert.deepStrictEqual(diffList(A, B, 'id'), [[ACTIONS.replace, 0, 4], [ACTIONS.move, 0, 4]]);
   });
 
   test('No changes', () => {
@@ -27,10 +27,10 @@ describe('diffList', () => {
     const B = expandList([5, 4, 3, 2, 1]);
 
     assert.deepStrictEqual(diffList(A, B, 'id'), [
-      ['move', 4, 0],
-      ['move', 4, 1],
-      ['move', 4, 2],
-      ['move', 4, 3],
+      [ACTIONS.move, 4, 0],
+      [ACTIONS.move, 4, 1],
+      [ACTIONS.move, 4, 2],
+      [ACTIONS.move, 4, 3],
     ]);
   });
 
@@ -39,8 +39,11 @@ describe('diffList', () => {
     const B = expandList([6, 7, 8]);
 
     assert.deepStrictEqual(diffList(A, B, 'id'), [
-      ['remove', 4],
-      ['remove', 3],
+      [ACTIONS.remove, 4],
+      [ACTIONS.remove, 3],
+      [ACTIONS.replace, 0, 0],
+      [ACTIONS.replace, 1, 1],
+      [ACTIONS.replace, 2, 2],
     ]);
   });
 
@@ -49,11 +52,11 @@ describe('diffList', () => {
     const B = expandList([6, 3, 1]);
 
     assert.deepStrictEqual(diffList(A, B, 'id'), [
-      ['remove', 4],
-      ['remove', 3],
-      ['remove', 1],
-      ['move', 2, 0],
-      ['move', 2, 1],
+      [ACTIONS.remove, 4],
+      [ACTIONS.remove, 3],
+      [ACTIONS.remove, 1],
+      [ACTIONS.move, 2, 0],
+      [ACTIONS.move, 2, 1],
     ]);
   });
 
@@ -62,9 +65,10 @@ describe('diffList', () => {
     const B = expandList([4, 5, 6, 1, 2]);
 
     assert.deepStrictEqual(diffList(A, B, 'id'), [
-      ['move', 2, 0],
-      ['add', 1],
-      ['add', 2],
+      [ACTIONS.replace, 2, 0],
+      [ACTIONS.move, 2, 0],
+      [ACTIONS.add, 1],
+      [ACTIONS.add, 2],
     ]);
   });
 
@@ -72,14 +76,24 @@ describe('diffList', () => {
     const A = expandList([1, 2, 3, 4]);
     const B = expandList([5, 6, 7, 8]);
 
-    assert.deepStrictEqual(diffList(A, B, 'id'), []);
+    assert.deepStrictEqual(diffList(A, B, 'id'), [
+      [ACTIONS.replace, 0, 0],
+      [ACTIONS.replace, 1, 1],
+      [ACTIONS.replace, 2, 2],
+      [ACTIONS.replace, 3, 3],
+    ]);
   });
 
   test('Moves one, replaces the rest', () => {
     const A = expandList([1, 2, 3, 4]);
     const B = expandList([5, 6, 7, 1]);
 
-    assert.deepStrictEqual(diffList(A, B, 'id'), [['move', 0, 3]]);
+    assert.deepStrictEqual(diffList(A, B, 'id'), [
+      [ACTIONS.replace, 1, 0],
+      [ACTIONS.replace, 2, 1],
+      [ACTIONS.replace, 3, 2],
+      [ACTIONS.move, 0, 3]
+    ]);
   });
 
   test('Adds all', () => {
@@ -87,10 +101,10 @@ describe('diffList', () => {
     const B = expandList([1, 2, 3, 4]);
 
     assert.deepStrictEqual(diffList(A, B, 'id'), [
-      ['add', 0],
-      ['add', 1],
-      ['add', 2],
-      ['add', 3],
+      [ACTIONS.add, 0],
+      [ACTIONS.add, 1],
+      [ACTIONS.add, 2],
+      [ACTIONS.add, 3],
     ]);
   });
 
@@ -99,10 +113,10 @@ describe('diffList', () => {
     const B = expandList([]);
 
     assert.deepStrictEqual(diffList(A, B, 'id'), [
-      ['remove', 3],
-      ['remove', 2],
-      ['remove', 1],
-      ['remove', 0],
+      [ACTIONS.remove, 3],
+      [ACTIONS.remove, 2],
+      [ACTIONS.remove, 1],
+      [ACTIONS.remove, 0],
     ]);
   });
 
@@ -111,9 +125,10 @@ describe('diffList', () => {
     const B = [{ id: 2}, {}];
 
     assert.deepStrictEqual(diffList(A, B, 'id'), [
-      ['remove', 3],
-      ['remove', 2],
-      ['move', 1, 0],
+      [ACTIONS.remove, 3],
+      [ACTIONS.remove, 2],
+      [ACTIONS.replace, 0, 1],
+      [ACTIONS.move, 1, 0],
     ]);
   });
 
@@ -121,13 +136,21 @@ describe('diffList', () => {
     const A: Array<{ id?: number, x: number }> = [{ x: 1 }, { x: 2 }, { x: 3 }];
     const B: Array<{ id?: number, x: number }> = [{ x: 1 }, { x: 2 }, { x: 3 }];
 
-    assert.deepStrictEqual(diffList(A, B, 'id'), []);
+    assert.deepStrictEqual(diffList(A, B, 'id'), [
+      [ACTIONS.replace, 0, 0],
+      [ACTIONS.replace, 1, 1],
+      [ACTIONS.replace, 2, 2],
+    ]);
   });
 
   test('Removes one with no keys', () => {
     const A: Array<{ id?: number, x: number }> = [{ x: 1 }, { x: 2 }, { x: 3 }];
     const B: Array<{ id?: number, x: number }> = [{ x: 1 }, { x: 2 }];
 
-    assert.deepStrictEqual(diffList(A, B, 'id'), [['remove', 2]]);
+    assert.deepStrictEqual(diffList(A, B, 'id'), [
+      [ACTIONS.remove, 2],
+      [ACTIONS.replace, 0, 0],
+      [ACTIONS.replace, 1, 1],
+    ]);
   });
 });
