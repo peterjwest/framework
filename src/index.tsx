@@ -1,4 +1,4 @@
-import { renderElement, Condition, List, Value, Input, ComponentChildren, CreateState } from './framework';
+import { renderElement, Condition, List, InputValue, Value, ComponentChildren, CreateState } from './framework';
 
 function ErrorMessage({ message }: { message: Value<string> }) {
   return <div>{message}</div>;
@@ -43,10 +43,10 @@ export function Component({ fullName }: ComponentProps, createState: CreateState
       <Section><h1>Hello {firstName} how are you?</h1></Section>
       <>
         {/* TODO: Support attributes */}
-        <input class="search-box" value={Value.extract(search)} onChange={(event) => {
+        <input class="search-box" value={search.extract()} onChange={(event) => {
           search.update((event.target as HTMLInputElement).value);
         }}/>
-        <input type="number" class="search-box" value={Value.extract(count)} onChange={(event) => {
+        <input type="number" class="search-box" value={count.extract()} onChange={(event) => {
           count.update(Number((event.target as HTMLInputElement).value));
         }}/>
       </>
@@ -77,4 +77,4 @@ export function Component({ fullName }: ComponentProps, createState: CreateState
   );
 }
 
-renderElement(<Component fullName={new Value('x')}/>, document.body);
+renderElement(<Component fullName={new InputValue('x')}/>, document.body);

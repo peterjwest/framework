@@ -62,10 +62,10 @@ function childrenToArray(children: ComponentChildren | undefined): ComponentChil
   return Array.isArray(children) ? children : [children];
 }
 
-export type CreateState = <Type>(value: Type) => Input<Type>;
+export type CreateState = <Type>(value: Type) => InputValue<Type>;
 
 export function createState<Type>(value: Type) {
-  return new Input<Type>(value);
+  return new InputValue<Type>(value);
 }
 
 export function createElementNode(
@@ -96,49 +96,49 @@ type ExtractValues<Type extends Value<unknown>[]> = {
   [Index in keyof Type]: ExtractValue<Type[Index]>;
 } & {length: Type['length']};
 
-export class Value<Type> {
-  protected value: Type;
-  dependents: Set<ComputedValue<unknown>> = new Set();
-  deriveListeners: Array<(value: Value<any>, computed: Value<any>) => void> = [];
+export abstract class Value<Type> {
+  /** Values which use this Value in their computation */
+  derivedValues: Set<ProxyValue<unknown> | ComputedValue<unknown>> = new Set();
+  /** Listeners which fire when this Value is used to derive another value */
+  deriveListeners: Array<(value: Value<unknown>, computed: Value<unknown>) => void> = [];
+  /** Listeners which fire when this Value is updated */
   updateListeners: Set<(value: any) => void> = new Set();
 
-  constructor(value: Type) {
-    this.value = value;
-  }
-
-  static extract<Type>(value: Value<Type>) {
-    return value.value;
-  }
-
+  /** Creates a new ComputedValue derived from all inputs */
   static computed<Inputs extends Value<unknown>[], ResultType>(
     inputs: [...Inputs],
     compute: (...values: ExtractValues<Inputs>) => ResultType,
   ): ComputedValue<ResultType> {
-    const value = new ComputedValue(() => compute(...inputs.map((value) => value.value) as any));
+    const value = new ComputedValue(() => compute(...inputs.map((input) => input.extract()) as any));
     for (const input of inputs) {
-      input.dependents.add(value);
+      input.addDerivedValue(value);
     }
     return value;
   }
 
-  computed<ResultType>(compute: (value: Type) => ResultType): ComputedValue<ResultType> {
-    const computed = Value.computed([this], compute);
+  /** Adds a Value which has been derived from this Value, triggering deriveListeners */
+  addDerivedValue(value: ProxyValue<unknown> | ComputedValue<unknown>) {
+    this.derivedValues.add(value);
     for (const listener of this.deriveListeners) {
-      listener(this, computed);
+      listener(this, value);
     }
-    return computed;
+  }
+
+  /** Removes a Value which is no longer derived from this Value */
+  removeDerivedValue(value: ProxyValue<unknown> | ComputedValue<unknown>) {
+    this.derivedValues.delete(value);
   }
 
   addUpdateListener(compute: (value: Type) => void) {
     this.updateListeners.add(compute);
-    compute(this.value);
+    compute(this.extract());
   }
 
   removeUpdateListener(compute: (value: Type) => void) {
     this.updateListeners.delete(compute);
   }
 
-  addDeriveListener(listener: (value: Value<any>, computed: Value<any>) => void) {
+  addDeriveListener(listener: (value: Value<unknown>, computed: Value<unknown>) => void) {
     this.deriveListeners.push(listener);
   }
 
@@ -146,10 +146,31 @@ export class Value<Type> {
     return this.computed((value) => value[path]);
   }
 
+  abstract extract(): Type
+
+  /** Creates a new ComputedValue derived from this Value */
+  computed<ResultType>(compute: (value: Type) => ResultType): ComputedValue<ResultType> {
+    return Value.computed([this], compute);
+  }
+}
+
+export class InputValue<Type> extends Value<Type> {
+  protected value: Type;
+
+  constructor(value: Type) {
+    super();
+    this.value = value;
+  }
+
+  extract() {
+    return this.value;
+  }
+
+  // TODO: Avoid update if value hasn't changed
   update(value: Type) {
     this.value = value;
-    for (const dependent of this.dependents) {
-      dependent.recompute();
+    for (const derived of this.derivedValues) {
+      derived.update();
     }
     for (const listener of this.updateListeners) {
       listener(this.value);
@@ -163,20 +184,61 @@ export class Value<Type> {
 }
 
 export class ComputedValue<Type> extends Value<Type> {
+  protected value: Type;
   compute: () => Type;
 
   constructor(compute: () => Type) {
-    super(compute());
+    super();
+    this.value = compute();
     this.compute = compute;
   }
 
-  recompute() {
+  extract() {
+    return this.value;
+  }
+
+  update() {
     this.value = this.compute();
-    this.update(this.value);
+    for (const derived of this.derivedValues) {
+      derived.update();
+    }
+    for (const listener of this.updateListeners) {
+      listener(this.value);
+    }
   }
 }
 
-export class Input<Type> extends Value<Type> {}
+export class ProxyValue<Type> extends Value<Type> {
+  target!: Value<Type>;
+
+  constructor(target: Value<Type>) {
+    super();
+    this.setTarget(target);
+  }
+
+  setTarget(target: Value<Type>) {
+    if (this.target) {
+      this.target.removeDerivedValue(this);
+    }
+    this.target = target;
+    this.target.addDerivedValue(this);
+    this.update();
+  }
+
+  update() {
+    for (const derived of this.derivedValues) {
+      derived.update();
+    }
+    const target = this.extract();
+    for (const listener of this.updateListeners) {
+      listener(target);
+    }
+  }
+
+  extract() {
+    return this.target.extract();
+  }
+}
 
 // TODO: Support raw components
 interface ConditionProps {
@@ -204,10 +266,10 @@ export function List<Type>(props: ListProps<Type>): ElementNode<ListProps<Type>>
   }
 }
 
-export function permuteValues(inputs: Input<any>[], values: Value<any>[] = []) {
+export function permuteValues(inputs: Value<any>[], values: Value<any>[] = []) {
   values = values.concat(inputs);
   for (const input of inputs) {
-    values = permuteValues(Array.from(input.dependents), values);
+    values = permuteValues(Array.from(input.derivedValues), values);
   }
   return values;
 }
@@ -239,7 +301,7 @@ export class DeriveValueListener {
 
 
 export function insertAtIndex(parent: HTMLElement, indexValue: Value<number>, element: HTMLElement | Text) {
-  const index = Value.extract(indexValue);
+  const index = indexValue.extract();
   if (index >= parent.children.length) {
     parent.appendChild(element);
   } else {
@@ -253,7 +315,7 @@ type Unrender = () => void;
 export function renderElement(
   element: ComponentChild,
   parentElement: HTMLElement,
-  childIndex: Value<number> = new Value(0),
+  childIndex: Value<number> = new InputValue(0),
   derivedListener?: DeriveValueListener,
 ): [Unrender | undefined, Value<number>] {
 
@@ -306,7 +368,7 @@ export function renderElement(
       elementNode.addEventListener('input', element.props.onChange);
     }
 
-    let nextChildIndex = new Value(0);
+    let nextChildIndex: Value<number> = new InputValue(0);
     for (const child of element.props.children) {
       const [_, childIndex] = renderElement(child, elementNode, nextChildIndex, derivedListener);
       nextChildIndex = childIndex;
@@ -320,7 +382,7 @@ export function renderElement(
   if (element.type === Condition) {
     const component: ElementNode<ConditionProps> = element;
 
-    const nextChildIndex = new Value(0);
+    const nextChildIndex = new InputValue(0);
     let unrenderBlock: Unrender | undefined;
     let lastCondition: boolean | undefined;
 
@@ -336,9 +398,9 @@ export function renderElement(
           const component: ElementNode<{}> = { type: block, props: { children: [] }};
           let returnedChildIndex: Value<number>;
           [unrenderBlock, returnedChildIndex] = renderElement(component, parentElement, childIndex, derivedListener);
-          nextChildIndex.update(Value.extract(returnedChildIndex))
+          nextChildIndex.update(returnedChildIndex.extract())
         } else {
-          nextChildIndex.update(Value.extract(childIndex));
+          nextChildIndex.update(childIndex.extract());
         }
 
         lastCondition = Boolean(condition);
@@ -356,15 +418,15 @@ export function renderElement(
   }
 
   // TODO: Make this work globally i.e. in conditions and loops
-  let inputs: Input<any>[] = [];
+  let inputs: InputValue<any>[] = [];
   const createState = <Type>(value: Type) => {
-    const input = new Input<Type>(value);
+    const input = new InputValue(value);
     inputs.push(input);
     return input;
   }
   const processedChild = element.type(element.props, createState);
   const derivedMapping: Map<Value<any>, Value<any>> = derivedListener ? derivedListener.extract() : new Map();
-  const values = permuteValues(Array.from(derivedMapping.values()).concat(inputs));
+  const values = permuteValues(Array.from(derivedMapping.values()), inputs);
 
   const newListener = new DeriveValueListener(values, derivedListener);
   const [unrender, nextChildIndex] = renderElement(processedChild, parentElement, childIndex, newListener);
