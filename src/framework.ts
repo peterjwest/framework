@@ -1,4 +1,5 @@
 import { JSXInternal  } from './jsx';
+import diffList, { ACTIONS } from './diffList';
 
 // interface FakeTextNode {
 //   textContent: string;
@@ -78,6 +79,7 @@ export function createElementNode<Props>(
   maybeProps: (Props & ChildrenNodeProps) | null,
 ): ElementNode<Props & ChildrenNodeProps>;
 
+// TODO: Support "key" in props
 export function createElementNode<Props>(
   type: string | Component<Props>,
   maybeProps: (HtmlNodeProps & ChildrenNodeProps) | (Props & ChildrenNodeProps) | null,
@@ -86,6 +88,7 @@ export function createElementNode<Props>(
     const props = (maybeProps ? maybeProps : {}) as HtmlNodeProps & ChildrenNodeProps;
     return { type, props: { ...props, children: childrenToArray(props.children) } };
   }
+
   const props = (maybeProps ? maybeProps : {}) as Props & ChildrenNodeProps;
   return { type, props: { ...props, children: childrenToArray(props.children) } };
 }
@@ -217,9 +220,7 @@ export class ProxyValue<Type> extends Value<Type> {
   }
 
   setTarget(target: Value<Type>) {
-    if (this.target) {
-      this.target.removeDerivedValue(this);
-    }
+    if (this.target) this.target.removeDerivedValue(this);
     this.target = target;
     this.target.addDerivedValue(this);
     this.update();
@@ -235,6 +236,10 @@ export class ProxyValue<Type> extends Value<Type> {
     }
   }
 
+  deactivate() {
+    this.target.removeDerivedValue(this);
+  }
+
   extract() {
     return this.target.extract();
   }
@@ -248,6 +253,7 @@ interface ConditionProps {
 }
 
 export function Condition(props: ConditionProps): ElementNode<ConditionProps> {
+  // Note: this is never actually called, but needed for types
   return {
     type: Condition,
     props: { ...props, children: [] },
@@ -256,10 +262,12 @@ export function Condition(props: ConditionProps): ElementNode<ConditionProps> {
 
 interface ListProps<Type> {
   data: Value<Type[]>,
-  element: (item: Value<Type>) => ComponentChild,
+  itemKey: string,
+  each: (item: Value<Type>) => ComponentChild,
 }
 
 export function List<Type>(props: ListProps<Type>): ElementNode<ListProps<Type>> {
+  // Note: this is never actually called, but needed for types
   return {
     type: List,
     props: { ...props, children: [] },
@@ -299,7 +307,7 @@ export class DeriveValueListener {
   }
 }
 
-
+/** Inserts an element at the specified index in a parent element */
 export function insertAtIndex(parent: HTMLElement, indexValue: Value<number>, element: HTMLElement | Text) {
   const index = indexValue.extract();
   if (index >= parent.children.length) {
@@ -309,8 +317,14 @@ export function insertAtIndex(parent: HTMLElement, indexValue: Value<number>, el
   }
 }
 
-
 type Unrender = () => void;
+
+type ListItemMetadata = {
+  input: InputValue<any>
+  startIndex: ProxyValue<number>
+  endIndex: Value<number>
+  unrender: Unrender | undefined
+}
 
 export function renderElement(
   element: ComponentChild,
@@ -341,8 +355,6 @@ export function renderElement(
     return [unrender, childIndex.computed((value) => value + 1)];
   }
 
-  if (element.type === List) return [undefined, childIndex]; // TODO: Process this
-
   if (element.type === Fragment) {
     const unrenders: Unrender[] = [];
     let nextChildIndex = childIndex;
@@ -363,7 +375,7 @@ export function renderElement(
       }
     }
     if (element.props.onChange) {
-      // TODO: Unregister
+      // TODO: Unregister previous
       elementNode.addEventListener('change', element.props.onChange);
       elementNode.addEventListener('input', element.props.onChange);
     }
@@ -375,14 +387,83 @@ export function renderElement(
     }
 
     insertAtIndex(parentElement, childIndex, elementNode);
-
+    // TODO: Unregister events
     return [() => elementNode.remove(), childIndex.computed((index) => index + 1)];
+  }
+
+  if (element.type === List) {
+    const component: ElementNode<ListProps<any>> = element;
+
+    let currentData: any[] = [];
+    const listMetadata: ListItemMetadata[] = [];
+    const finalChildIndex = new ProxyValue(childIndex);
+
+    const updateListener = (nextData: any[]) => {
+      const actions = diffList(currentData, nextData, component.props.itemKey);
+
+      for (const action of actions) {
+        if (action[0] === ACTIONS.add) {
+          const index = action[1];
+          const input = new InputValue(nextData[index]);
+
+          const startIndex = new ProxyValue(index === 0 ? childIndex : listMetadata[index - 1].endIndex);
+          const childComponent: ElementNode<{}> = { type: () => component.props.each(input), props: { children: [] }};
+          const [unrender, endIndex] = renderElement(childComponent, parentElement, startIndex, derivedListener);
+
+          const metadata = {
+            unrender,
+            input,
+            startIndex,
+            endIndex,
+          }
+          listMetadata.splice(index, 0, metadata);
+
+          // Add proxy index to chain
+          const nextMetadata: ListItemMetadata | undefined = listMetadata[index + 1];
+          const nextIndex = nextMetadata ? nextMetadata.startIndex : finalChildIndex;
+          nextIndex.setTarget(metadata.endIndex);
+        }
+        if (action[0] === ACTIONS.remove) {
+          const index = action[1];
+          const metadata = listMetadata[index];
+
+          if (metadata.unrender) metadata.unrender();
+
+          // Remove proxy index from chain
+          const nextMetadata: ListItemMetadata | undefined = listMetadata[index + 1];
+          const prevMetadata: ListItemMetadata | undefined = listMetadata[index - 1];
+          const nextIndex = nextMetadata ? nextMetadata.startIndex : finalChildIndex;
+          nextIndex.setTarget(prevMetadata ? prevMetadata.endIndex : childIndex)
+          metadata.startIndex.deactivate();
+
+          listMetadata.splice(index, 1);
+        }
+      }
+
+      currentData = nextData;
+      // TODO:
+      // - Only update existing items
+      // - Only update non-equal items
+      //   - Support custom equality
+      for (let index = 0; index < listMetadata.length; index++) {
+        listMetadata[index].input.update(currentData[index]);
+      }
+    }
+
+    component.props.data.addUpdateListener(updateListener);
+
+    const unrender = () => {
+      for (const metadata of listMetadata) if (metadata.unrender) metadata.unrender();
+      component.props.data.removeUpdateListener(updateListener);
+    }
+
+    return [unrender, finalChildIndex];
   }
 
   if (element.type === Condition) {
     const component: ElementNode<ConditionProps> = element;
 
-    const nextChildIndex = new InputValue(0);
+    const nextChildIndex = new ProxyValue(childIndex);
     let unrenderBlock: Unrender | undefined;
     let lastCondition: boolean | undefined;
 
@@ -394,13 +475,14 @@ export function renderElement(
           unrenderBlock = undefined;
         }
 
+
         if (block) {
           const component: ElementNode<{}> = { type: block, props: { children: [] }};
           let returnedChildIndex: Value<number>;
           [unrenderBlock, returnedChildIndex] = renderElement(component, parentElement, childIndex, derivedListener);
-          nextChildIndex.update(returnedChildIndex.extract())
+          nextChildIndex.setTarget(returnedChildIndex);
         } else {
-          nextChildIndex.update(childIndex.extract());
+          nextChildIndex.setTarget(childIndex);
         }
 
         lastCondition = Boolean(condition);
@@ -438,3 +520,5 @@ export function renderElement(
 
   return [unrender, nextChildIndex];
 }
+
+// TODO: Attributes vs. properties

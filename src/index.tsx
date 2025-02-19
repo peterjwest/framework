@@ -27,11 +27,13 @@ type ComponentProps = {
 
 export function Component({ fullName }: ComponentProps, createState: CreateState) {
   const search = createState('hi');
-  const count = createState(1);
+  const count = createState(2);
   // const results = search.debounce(100).computed(
   //   async (search, abortSignal) => fetch(`/search?query=${search}`, { signal: abortSignal }),
   // );
-  const results = Value.computed([search.debounce(100), count], (search, count) => ({ success: true, data: Array(count).fill({ name: search }) }));
+  const results = Value.computed([search.debounce(100), count], (search, count) =>
+    ({ success: true, data: Array(Math.max(0, count)).fill(undefined).map((_, index) => ({ id: index, name: search })) })
+  );
 
   const firstName = fullName.computed((fullName) => fullName.split(' ')[0]);
   const ratio = Value.computed([search, count], (search, count) => search.length / count);
@@ -52,7 +54,7 @@ export function Component({ fullName }: ComponentProps, createState: CreateState
       </>
       <NestedComponent query={search} />
       <Condition
-        if={resultsLength}
+        if={search.get('length')}
         then={() => (
           <Condition
             if={count}
@@ -62,7 +64,7 @@ export function Component({ fullName }: ComponentProps, createState: CreateState
                   Found {resultsLength} results for {search}
                   <pre>Ratio: {ratio}</pre>
                 </div>
-                <List data={results.get('data')} element={(item) => {
+                <List data={results.get('data')} itemKey={'id'} each={(item) => {
                   const username = fullName.computed((fullName) => fullName.toLowerCase());
                   return <div class="item">{item.get('name')} owned by {username}</div>;
                 }} />
