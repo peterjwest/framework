@@ -157,20 +157,26 @@ export abstract class Value<Type> {
   }
 }
 
+function strictEquals<Type>(prev: Type, next: Type) {
+  return prev === next;
+}
+
 export class InputValue<Type> extends Value<Type> {
   protected value: Type;
+  isEqual: (prev: Type, next: Type) => boolean;
 
-  constructor(value: Type) {
+  constructor(value: Type, isEqual = strictEquals) {
     super();
     this.value = value;
+    this.isEqual = isEqual;
   }
 
   extract() {
     return this.value;
   }
 
-  // TODO: Avoid update if value hasn't changed
   update(value: Type) {
+    if (this.isEqual(this.value, value)) return;
     this.value = value;
     for (const derived of this.derivedValues) {
       derived.update();
