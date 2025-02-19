@@ -65,6 +65,10 @@ function childrenToArray(children: ComponentChildren | undefined): ComponentChil
 
 export type CreateState = <Type>(value: Type) => InputValue<Type>;
 
+export interface IsEqual<Type> {
+  (prev: Type, next: Type): boolean;
+}
+
 export function createState<Type>(value: Type) {
   return new InputValue<Type>(value);
 }
@@ -163,7 +167,7 @@ function strictEquals<Type>(prev: Type, next: Type) {
 
 export class InputValue<Type> extends Value<Type> {
   protected value: Type;
-  isEqual: (prev: Type, next: Type) => boolean;
+  isEqual: IsEqual<Type>;
 
   constructor(value: Type, isEqual = strictEquals) {
     super();
@@ -269,6 +273,7 @@ export function Condition(props: ConditionProps): ElementNode<ConditionProps> {
 interface ListProps<Type> {
   data: Value<Type[]>,
   itemKey: string,
+  itemIsEqual?: IsEqual<Type>,
   each: (item: Value<Type>) => ComponentChild,
 }
 
@@ -376,14 +381,18 @@ export function renderElement(
   if (typeof element.type === 'string') {
     const elementNode = document.createElement(element.type);
     for (const attr in element.props) {
-      if (attr !== 'children' && attr !== 'onChange') {
+      if (attr !== 'children' && attr !== 'onChange' && attr !== 'onClick' ) {
         elementNode.setAttribute(attr, element.props[attr])
       }
     }
+    // TODO: Support all events
     if (element.props.onChange) {
       // TODO: Unregister previous
       elementNode.addEventListener('change', element.props.onChange);
       elementNode.addEventListener('input', element.props.onChange);
+    }
+    if (element.props.onClick) {
+      elementNode.addEventListener('click', element.props.onClick);
     }
 
     let nextChildIndex: Value<number> = new InputValue(0);
@@ -410,7 +419,7 @@ export function renderElement(
       for (const action of actions) {
         if (action[0] === ACTIONS.add) {
           const index = action[1];
-          const input = new InputValue(nextData[index]);
+          const input = new InputValue(nextData[index], component.props.itemIsEqual || undefined);
 
           const startIndex = new ProxyValue(index === 0 ? childIndex : listMetadata[index - 1].endIndex);
           const childComponent: ElementNode<{}> = { type: () => component.props.each(input), props: { children: [] }};
@@ -447,10 +456,6 @@ export function renderElement(
       }
 
       currentData = nextData;
-      // TODO:
-      // - Only update existing items
-      // - Only update non-equal items
-      //   - Support custom equality
       for (let index = 0; index < listMetadata.length; index++) {
         listMetadata[index].input.update(currentData[index]);
       }

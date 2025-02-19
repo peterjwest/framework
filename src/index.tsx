@@ -44,7 +44,6 @@ export function Component({ fullName }: ComponentProps, createState: CreateState
     <article>
       <Section><h1>Hello {firstName} how are you?</h1></Section>
       <>
-        {/* TODO: Support attributes */}
         <input class="search-box" value={search.extract()} onChange={(event) => {
           search.update((event.target as HTMLInputElement).value);
         }}/>
@@ -65,8 +64,15 @@ export function Component({ fullName }: ComponentProps, createState: CreateState
                   <pre>Ratio: {ratio}</pre>
                 </div>
                 <List data={results.get('data')} itemKey={'id'} each={(item) => {
+                  const count = createState(0);
                   const username = fullName.computed((fullName) => fullName.toLowerCase());
-                  return <div class="item">{item.get('name')} owned by {username}</div>;
+                  return <div class="item">
+                    <span>{item.get('name')} owned by {username} - </span>
+                    <b>{count} </b>
+                    <button onClick={() => {
+                      count.update(count.extract() + 1);
+                    }}>Increment</button>
+                  </div>;
                 }} />
               </>
             )}
