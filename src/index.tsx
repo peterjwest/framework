@@ -1,4 +1,5 @@
-import { renderElement, Condition, List, InputValue, Value, ComponentChildren, CreateState } from './framework';
+import { renderElement, Condition, List, Value, ComponentChildren, CreateState } from './framework';
+import { DeriveValueListener, StateWatcher, InputValue } from './framework';
 
 function ErrorMessage({ message }: { message: Value<string> }) {
   return <div>{message}</div>;
@@ -16,16 +17,14 @@ function NestedComponent({ query }: { query: Value<string> }, createState: Creat
     <h1 class="title">{title}</h1>
     <Condition
       if={repeated.computed((value) => value.length)}
-      then={() => <p class="repeated">{repeated}</p>}
+      then={<p class="repeated">{repeated}</p>}
     />
   </>;
 }
 
-type ComponentProps = {
-  fullName: Value<string>
-}
 
-export function Component({ fullName }: ComponentProps, createState: CreateState) {
+export function Component({}, createState: CreateState) {
+  const fullName = createState('J');
   const search = createState('hi');
   const count = createState(2);
   // const results = search.debounce(100).computed(
@@ -69,9 +68,7 @@ export function Component({ fullName }: ComponentProps, createState: CreateState
                   return <div class="item">
                     <span>{item.get('name')} owned by {username} - </span>
                     <b>{count} </b>
-                    <button onClick={() => {
-                      count.update(count.extract() + 1);
-                    }}>Increment</button>
+                    <button onClick={() => count.update(count.extract() + 1)}>Increment</button>
                   </div>;
                 }} />
               </>
@@ -85,4 +82,6 @@ export function Component({ fullName }: ComponentProps, createState: CreateState
   );
 }
 
-renderElement(<Component fullName={new InputValue('x')}/>, document.body);
+const listener = new DeriveValueListener([]);
+(document as any).listener = listener;
+renderElement(<Component/>, document.body, new StateWatcher(), new InputValue(0), listener);

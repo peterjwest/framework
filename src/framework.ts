@@ -40,8 +40,15 @@ const PRIMITIVES = new Set([
 
 type Primitive = string | number | bigint | boolean | null | undefined;
 
+/** Returns whether a value is a primtive */
 function isPrimitive(value: any): value is Primitive {
   return PRIMITIVES.has(typeof value);
+}
+
+/** Casts any value to a string, except null and undefined which are converted to '' */
+function toString(value: any) {
+  if (value === undefined || value === null) return '';
+  return String(value);
 }
 
 export type ComponentChild = ElementNode<any> | Value<any> | Primitive;
@@ -105,9 +112,9 @@ type ExtractValues<Type extends Value<unknown>[]> = {
 
 export abstract class Value<Type> {
   /** Values which use this Value in their computation */
-  derivedValues: Set<ProxyValue<unknown> | ComputedValue<unknown>> = new Set();
+  derivedValues: Set<DerivedValue<unknown>> = new Set();
   /** Listeners which fire when this Value is used to derive another value */
-  deriveListeners: Array<(value: Value<unknown>, computed: Value<unknown>) => void> = [];
+  deriveListeners: Array<(value: Value<unknown>, derived: DerivedValue<unknown>) => void> = [];
   /** Listeners which fire when this Value is updated */
   updateListeners: Set<(value: any) => void> = new Set();
 
@@ -124,7 +131,7 @@ export abstract class Value<Type> {
   }
 
   /** Adds a Value which has been derived from this Value, triggering deriveListeners */
-  addDerivedValue(value: ProxyValue<unknown> | ComputedValue<unknown>) {
+  addDerivedValue(value: DerivedValue<unknown>) {
     this.derivedValues.add(value);
     for (const listener of this.deriveListeners) {
       listener(this, value);
@@ -132,7 +139,7 @@ export abstract class Value<Type> {
   }
 
   /** Removes a Value which is no longer derived from this Value */
-  removeDerivedValue(value: ProxyValue<unknown> | ComputedValue<unknown>) {
+  removeDerivedValue(value: DerivedValue<unknown>) {
     this.derivedValues.delete(value);
   }
 
@@ -145,7 +152,7 @@ export abstract class Value<Type> {
     this.updateListeners.delete(compute);
   }
 
-  addDeriveListener(listener: (value: Value<unknown>, computed: Value<unknown>) => void) {
+  addDeriveListener(listener: (value: Value<unknown>, derived: DerivedValue<unknown>) => void) {
     this.deriveListeners.push(listener);
   }
 
@@ -255,11 +262,12 @@ export class ProxyValue<Type> extends Value<Type> {
   }
 }
 
-// TODO: Support raw components
+type DerivedValue<Type> = ProxyValue<Type> | ComputedValue<Type>;
+
 interface ConditionProps {
   if: Value<boolean | number>,
-  then?: () => ComponentChild,
-  else?: () => ComponentChild,
+  then?: (() => ComponentChild) | ComponentChild,
+  else?: (() => ComponentChild) | ComponentChild,
 }
 
 export function Condition(props: ConditionProps): ElementNode<ConditionProps> {
@@ -297,18 +305,22 @@ export class DeriveValueListener {
   children: Set<DeriveValueListener> = new Set();
   derived: Map<Value<any>, Value<any>> = new Map();
 
-  addValue = (value: Value<any>, derived: Value<any>) => {
-    this.derived.set(value, derived);
-    for (const child of this.children) {
-      child.derived.set(value, derived);
-    }
-  }
-
   constructor(values: Value<any>[], parent?: DeriveValueListener) {
     for (const value of values) {
       value.addDeriveListener(this.addValue);
     }
     if (parent) parent.children.add(this);
+  }
+
+  addValue = (value: Value<any>, derived: DerivedValue<any>) => {
+    this.derived.set(value, derived);
+    for (const child of this.children) {
+      child.addValue(value, derived);
+    }
+  }
+
+  removeChild(child: DeriveValueListener) {
+    this.children.delete(child);
   }
 
   extract() {
@@ -328,6 +340,23 @@ export function insertAtIndex(parent: HTMLElement, indexValue: Value<number>, el
   }
 }
 
+/** Wrapper for createState helper to track inputs */
+export class StateWatcher {
+  inputs: InputValue<any>[] = [];
+
+  createState = <Type>(value: Type) => {
+    const input = new InputValue(value);
+    this.inputs.push(input);
+    return input;
+  }
+
+  extract() {
+    const inputs = this.inputs;
+    this.inputs = [];
+    return inputs;
+  }
+}
+
 type Unrender = () => void;
 
 type ListItemMetadata = {
@@ -340,22 +369,21 @@ type ListItemMetadata = {
 export function renderElement(
   element: ComponentChild,
   parentElement: HTMLElement,
+  stateWatcher = new StateWatcher(),
   childIndex: Value<number> = new InputValue(0),
   derivedListener?: DeriveValueListener,
 ): [Unrender | undefined, Value<number>] {
 
   if (isPrimitive(element)) {
-    // TODO: Cast properly
-    const textNode = document.createTextNode(element ? String(element) : '');
+    const textNode = document.createTextNode(toString(element));
     insertAtIndex(parentElement, childIndex, textNode);
     return [() => textNode.remove(), childIndex.computed((value) => value + 1)];
   }
 
-  // TODO: Strong typing?
   if (element instanceof Value) {
     const textNode = document.createTextNode('');
-    const updateListener = (value: string) => {
-      textNode.textContent = value;
+    const updateListener = (value: any) => {
+      textNode.textContent = toString(value);
     }
     element.addUpdateListener(updateListener);
     insertAtIndex(parentElement, childIndex, textNode);
@@ -370,7 +398,7 @@ export function renderElement(
     const unrenders: Unrender[] = [];
     let nextChildIndex = childIndex;
     for (const child of element.props.children) {
-      const [unrender, childIndex] = renderElement(child, parentElement, nextChildIndex, derivedListener);
+      const [unrender, childIndex] = renderElement(child, parentElement, stateWatcher, nextChildIndex, derivedListener);
       if (unrender) unrenders.push(unrender);
       nextChildIndex = childIndex;
     }
@@ -397,7 +425,7 @@ export function renderElement(
 
     let nextChildIndex: Value<number> = new InputValue(0);
     for (const child of element.props.children) {
-      const [_, childIndex] = renderElement(child, elementNode, nextChildIndex, derivedListener);
+      const [_, childIndex] = renderElement(child, elementNode, stateWatcher, nextChildIndex, derivedListener);
       nextChildIndex = childIndex;
     }
 
@@ -417,13 +445,14 @@ export function renderElement(
       const actions = diffList(currentData, nextData, component.props.itemKey);
 
       for (const action of actions) {
+        // TODO: move and replace
         if (action[0] === ACTIONS.add) {
           const index = action[1];
           const input = new InputValue(nextData[index], component.props.itemIsEqual || undefined);
 
           const startIndex = new ProxyValue(index === 0 ? childIndex : listMetadata[index - 1].endIndex);
           const childComponent: ElementNode<{}> = { type: () => component.props.each(input), props: { children: [] }};
-          const [unrender, endIndex] = renderElement(childComponent, parentElement, startIndex, derivedListener);
+          const [unrender, endIndex] = renderElement(childComponent, parentElement, stateWatcher, startIndex, derivedListener);
 
           const metadata = {
             unrender,
@@ -486,11 +515,14 @@ export function renderElement(
           unrenderBlock = undefined;
         }
 
-
         if (block) {
-          const component: ElementNode<{}> = { type: block, props: { children: [] }};
+          const component: ComponentChild = (
+            typeof block === 'function' ?
+            { type: block, props: { children: [] }} :
+            block
+          );
           let returnedChildIndex: Value<number>;
-          [unrenderBlock, returnedChildIndex] = renderElement(component, parentElement, childIndex, derivedListener);
+          [unrenderBlock, returnedChildIndex] = renderElement(component, parentElement, stateWatcher, childIndex, derivedListener);
           nextChildIndex.setTarget(returnedChildIndex);
         } else {
           nextChildIndex.setTarget(childIndex);
@@ -510,24 +542,21 @@ export function renderElement(
     return [unrender, nextChildIndex];
   }
 
-  // TODO: Make this work globally i.e. in conditions and loops
-  let inputs: InputValue<any>[] = [];
-  const createState = <Type>(value: Type) => {
-    const input = new InputValue(value);
-    inputs.push(input);
-    return input;
-  }
-  const processedChild = element.type(element.props, createState);
-  const derivedMapping: Map<Value<any>, Value<any>> = derivedListener ? derivedListener.extract() : new Map();
-  const values = permuteValues(Array.from(derivedMapping.values()), inputs);
+  const processedChild = element.type(element.props, stateWatcher.createState);
+  const derivedMapping: Map<Value<unknown>, DerivedValue<unknown>> = derivedListener ? derivedListener.extract() : new Map();
+  const values = permuteValues(Array.from(derivedMapping.values()), stateWatcher.extract());
 
   const newListener = new DeriveValueListener(values, derivedListener);
-  const [unrender, nextChildIndex] = renderElement(processedChild, parentElement, childIndex, newListener);
+  const [unrenderElement, nextChildIndex] = renderElement(processedChild, parentElement, stateWatcher, childIndex, newListener);
 
-  // TODO: Add to unrender:
-  //  - decouple DeriveValueListener
-  //  - decouple derivedMapping
-  //  - remove effects
+  const unrender = () => {
+    if (unrenderElement) unrenderElement();
+
+    if (derivedListener) derivedListener.removeChild(newListener)
+    for (const [input, derived] of derivedMapping.entries()) {
+      input.removeDerivedValue(derived);
+    }
+  }
 
   return [unrender, nextChildIndex];
 }
