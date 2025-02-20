@@ -43,12 +43,14 @@ export function Component({}, createState: CreateState) {
     <article>
       <Section><h1>Hello {firstName} how are you?</h1></Section>
       <>
-        <input class="search-box" value={search.extract()} onChange={(event) => {
+        <input class="search-box" value={search.extract()} events={{ input: (event) => {
           search.update((event.target as HTMLInputElement).value);
-        }}/>
-        <input type="number" class="search-box" value={count.extract()} onChange={(event) => {
+        }, change: (event) => {
+          search.update((event.target as HTMLInputElement).value);
+        }}}/>
+        <div class="search-box" events={{ input: (event) => {
           count.update(Number((event.target as HTMLInputElement).value));
-        }}/>
+        }}}/>
       </>
       <NestedComponent query={search} />
       <Condition

@@ -5,6 +5,7 @@ import {
   ComponentType,
   FunctionComponent,
   ElementNode,
+  EventProp
 } from './framework';
 
 type Defaultize<Props, Defaults> =
@@ -594,6 +595,8 @@ export namespace JSXInternal {
 
   export interface DOMAttributes<Target extends EventTarget> {
     children?: ComponentChildren;
+
+    events?: EventProp;
 
     // Image Events
     onLoad?: GenericEventHandler<Target> | undefined;
@@ -1769,8 +1772,7 @@ export namespace JSXInternal {
     | 'week'
     | (string & {});
 
-  interface InputHTMLAttributes<T extends EventTarget = HTMLInputElement>
-    extends HTMLAttributes<T> {
+  interface InputHTMLAttributes<T extends EventTarget = HTMLInputElement> extends HTMLAttributes<T> {
     accept?: Signalish<string | undefined>;
     alt?: Signalish<string | undefined>;
     autocomplete?: Signalish<string | undefined>;

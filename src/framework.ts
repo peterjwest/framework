@@ -63,6 +63,10 @@ export function Fragment(props: ChildrenNodeProps) {
   return props.children;
 }
 
+export type EventProp = {
+  [Key in keyof HTMLElementEventMap]?: (this: HTMLAnchorElement, ev: HTMLElementEventMap[Key]) => any
+};
+
 type HtmlNodeProps = JSXInternal.HTMLAttributes & JSXInternal.SVGAttributes & Omit<Record<string, any>, 'children'>;
 
 function childrenToArray(children: ComponentChildren | undefined): ComponentChild[] {
@@ -304,6 +308,7 @@ export function permuteValues(inputs: Value<any>[], values: Value<any>[] = []) {
 export class DeriveValueListener {
   children: Set<DeriveValueListener> = new Set();
   derived: Map<Value<any>, Value<any>> = new Map();
+  ref: any;
 
   constructor(values: Value<any>[], parent?: DeriveValueListener) {
     for (const value of values) {
@@ -413,14 +418,22 @@ export function renderElement(
         elementNode.setAttribute(attr, element.props[attr])
       }
     }
+
+    type ListenerMetadata = [HTMLElement, keyof HTMLElementEventMap, EventListenerOrEventListenerObject];
+    const events: ListenerMetadata[] = [];
+
     // TODO: Support all events
     if (element.props.onChange) {
-      // TODO: Unregister previous
-      elementNode.addEventListener('change', element.props.onChange);
-      elementNode.addEventListener('input', element.props.onChange);
+      events.push([elementNode, 'change', element.props.onChange]);
+    }
+    if (element.props.onInput) {
+      events.push([elementNode, 'input', element.props.onInput]);
     }
     if (element.props.onClick) {
-      elementNode.addEventListener('click', element.props.onClick);
+      events.push([elementNode, 'click', element.props.onClick]);
+    }
+    for (const [elementNode, eventName, listener] of events) {
+      elementNode.addEventListener(eventName, listener);
     }
 
     let nextChildIndex: Value<number> = new InputValue(0);
@@ -430,8 +443,15 @@ export function renderElement(
     }
 
     insertAtIndex(parentElement, childIndex, elementNode);
-    // TODO: Unregister events
-    return [() => elementNode.remove(), childIndex.computed((index) => index + 1)];
+
+    const unrender = () => {
+      for (const [elementNode, eventName, listener] of events) {
+        elementNode.removeEventListener(eventName, listener);
+      }
+      elementNode.remove()
+    }
+
+    return [unrender, childIndex.computed((index) => index + 1)];
   }
 
   if (element.type === List) {
@@ -451,7 +471,10 @@ export function renderElement(
           const input = new InputValue(nextData[index], component.props.itemIsEqual || undefined);
 
           const startIndex = new ProxyValue(index === 0 ? childIndex : listMetadata[index - 1].endIndex);
-          const childComponent: ElementNode<{}> = { type: () => component.props.each(input), props: { children: [] }};
+          const childComponent: ElementNode<{}> = {
+            type: function ListItem() { return component.props.each(input); },
+            props: { children: [] },
+          };
           const [unrender, endIndex] = renderElement(childComponent, parentElement, stateWatcher, startIndex, derivedListener);
 
           const metadata = {
@@ -518,7 +541,7 @@ export function renderElement(
         if (block) {
           const component: ComponentChild = (
             typeof block === 'function' ?
-            { type: block, props: { children: [] }} :
+            { type: function ConditionBlock() { return block() }, props: { children: [] }} :
             block
           );
           let returnedChildIndex: Value<number>;
@@ -542,12 +565,13 @@ export function renderElement(
     return [unrender, nextChildIndex];
   }
 
-  const processedChild = element.type(element.props, stateWatcher.createState);
+  const processedElement = element.type(element.props, stateWatcher.createState);
   const derivedMapping: Map<Value<unknown>, DerivedValue<unknown>> = derivedListener ? derivedListener.extract() : new Map();
   const values = permuteValues(Array.from(derivedMapping.values()), stateWatcher.extract());
 
   const newListener = new DeriveValueListener(values, derivedListener);
-  const [unrenderElement, nextChildIndex] = renderElement(processedChild, parentElement, stateWatcher, childIndex, newListener);
+  newListener.ref = element.type;
+  const [unrenderElement, nextChildIndex] = renderElement(processedElement, parentElement, stateWatcher, childIndex, newListener);
 
   const unrender = () => {
     if (unrenderElement) unrenderElement();
