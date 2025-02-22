@@ -1,4 +1,4 @@
-import { JSXInternal  } from './jsx';
+import { JSX  } from './jsx';
 import { createElementNode, Fragment } from './framework';
 
 export {
@@ -7,4 +7,4 @@ export {
 	createElementNode as jsxDEV,
 	Fragment,
 };
-export type { JSXInternal as JSX };
+export type { JSX };

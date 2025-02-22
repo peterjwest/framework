@@ -1,83 +1,11 @@
-import { JSXInternal  } from './jsx';
+import { isPrimitive, childrenToArray, primitiveToString } from './util';
+import { Component, ElementNode, HTMLNodeProps, ComponentChild, ChildrenNodeProps } from './jsx';
+import { Value, InputValue, DerivedValue, IsEqual, ProxyValue, DeriveValueListener } from './value';
+
 import diffList, { ACTIONS } from './diffList';
-
-// interface FakeTextNode {
-//   textContent: string;
-// }
-
-// class FakeHTMLElement {
-//   tagName: string;
-//   children: (FakeHTMLElement | Text)[] = [];
-
-//   constructor(tagName: string) {
-//     this.tagName = tagName;
-//   }
-
-//   appendChild(element: FakeHTMLElement | Text) {
-//     this.children.push(element);
-//   }
-
-//   insertBefore(element: FakeHTMLElement | Text, beforeChild: FakeHTMLElement | Text) {
-//     const index = this.children.findIndex((child) => child === beforeChild);
-//     if (index === -1) throw new Error('Child not found');
-//     this.children.splice(index, 0, element)
-//   }
-// }
-
-// export const document = {
-//   createElement: (tagName: string): HTMLElement => new HTMLElement(tagName),
-//   createTextNode: (textContent: string): Text => ({ textContent }),
-// };
-
-export interface ElementNode<Props = {}> {
-  type: Component<Props> | string;
-  props: Props & { children: ComponentChild[] };
-}
-
-const PRIMITIVES = new Set([
-  'string', 'number', 'bigint', 'boolean', 'null', 'undefined',
-])
-
-type Primitive = string | number | bigint | boolean | null | undefined;
-
-/** Returns whether a value is a primtive */
-function isPrimitive(value: any): value is Primitive {
-  return PRIMITIVES.has(typeof value);
-}
-
-/** Casts any value to a string, except null and undefined which are converted to '' */
-function toString(value: any) {
-  if (value === undefined || value === null) return '';
-  return String(value);
-}
-
-export type ComponentChild = ElementNode<any> | Value<any> | Primitive;
-export type ComponentChildren = ComponentChild[] | ComponentChild;
-export type ChildrenNodeProps = { children?: ComponentChildren };
-
-export interface Component<Props = {}> {
-  (props: Props & ChildrenNodeProps, createState: CreateState): ComponentChild;
-}
 
 export function Fragment(props: ChildrenNodeProps) {
   return props.children;
-}
-
-export type EventProp = {
-  [Key in keyof HTMLElementEventMap]?: (this: HTMLAnchorElement, ev: HTMLElementEventMap[Key]) => any
-};
-
-type HtmlNodeProps = JSXInternal.HTMLAttributes & JSXInternal.SVGAttributes & Omit<Record<string, any>, 'children'>;
-
-function childrenToArray(children: ComponentChildren | undefined): ComponentChild[] {
-  if (children === undefined) return [];
-  return Array.isArray(children) ? children : [children];
-}
-
-export type CreateState = <Type>(value: Type) => InputValue<Type>;
-
-export interface IsEqual<Type> {
-  (prev: Type, next: Type): boolean;
 }
 
 export function createState<Type>(value: Type) {
@@ -86,8 +14,8 @@ export function createState<Type>(value: Type) {
 
 export function createElementNode(
   type: string,
-  maybeProps: (HtmlNodeProps & ChildrenNodeProps) | null,
-): ElementNode<HtmlNodeProps & ChildrenNodeProps>;
+  maybeProps: (HTMLNodeProps & ChildrenNodeProps) | null,
+): ElementNode<HTMLNodeProps & ChildrenNodeProps>;
 
 export function createElementNode<Props>(
   type: Component<Props>,
@@ -97,176 +25,16 @@ export function createElementNode<Props>(
 // TODO: Support "key" in props
 export function createElementNode<Props>(
   type: string | Component<Props>,
-  maybeProps: (HtmlNodeProps & ChildrenNodeProps) | (Props & ChildrenNodeProps) | null,
-): ElementNode<HtmlNodeProps> | ElementNode<Props> {
+  maybeProps: (HTMLNodeProps & ChildrenNodeProps) | (Props & ChildrenNodeProps) | null,
+): ElementNode<HTMLNodeProps> | ElementNode<Props> {
   if (typeof type === 'string') {
-    const props = (maybeProps ? maybeProps : {}) as HtmlNodeProps & ChildrenNodeProps;
+    const props = (maybeProps ? maybeProps : {}) as HTMLNodeProps & ChildrenNodeProps;
     return { type, props: { ...props, children: childrenToArray(props.children) } };
   }
 
   const props = (maybeProps ? maybeProps : {}) as Props & ChildrenNodeProps;
   return { type, props: { ...props, children: childrenToArray(props.children) } };
 }
-
-type ExtractValue<Type> = Type extends Value<infer X> ? X : never;
-
-type ExtractValues<Type extends Value<unknown>[]> = {
-  [Index in keyof Type]: ExtractValue<Type[Index]>;
-} & {length: Type['length']};
-
-export abstract class Value<Type> {
-  /** Values which use this Value in their computation */
-  derivedValues: Set<DerivedValue<unknown>> = new Set();
-  /** Listeners which fire when this Value is used to derive another value */
-  deriveListeners: Array<(value: Value<unknown>, derived: DerivedValue<unknown>) => void> = [];
-  /** Listeners which fire when this Value is updated */
-  updateListeners: Set<(value: any) => void> = new Set();
-
-  /** Creates a new ComputedValue derived from all inputs */
-  static computed<Inputs extends Value<unknown>[], ResultType>(
-    inputs: [...Inputs],
-    compute: (...values: ExtractValues<Inputs>) => ResultType,
-  ): ComputedValue<ResultType> {
-    const value = new ComputedValue(() => compute(...inputs.map((input) => input.extract()) as any));
-    for (const input of inputs) {
-      input.addDerivedValue(value);
-    }
-    return value;
-  }
-
-  /** Adds a Value which has been derived from this Value, triggering deriveListeners */
-  addDerivedValue(value: DerivedValue<unknown>) {
-    this.derivedValues.add(value);
-    for (const listener of this.deriveListeners) {
-      listener(this, value);
-    }
-  }
-
-  /** Removes a Value which is no longer derived from this Value */
-  removeDerivedValue(value: DerivedValue<unknown>) {
-    this.derivedValues.delete(value);
-  }
-
-  addUpdateListener(compute: (value: Type) => void) {
-    this.updateListeners.add(compute);
-    compute(this.extract());
-  }
-
-  removeUpdateListener(compute: (value: Type) => void) {
-    this.updateListeners.delete(compute);
-  }
-
-  addDeriveListener(listener: (value: Value<unknown>, derived: DerivedValue<unknown>) => void) {
-    this.deriveListeners.push(listener);
-  }
-
-  get<Key extends keyof Type>(path: Key): Value<Type[Key]> {
-    return this.computed((value) => value[path]);
-  }
-
-  abstract extract(): Type
-
-  /** Creates a new ComputedValue derived from this Value */
-  computed<ResultType>(compute: (value: Type) => ResultType): ComputedValue<ResultType> {
-    return Value.computed([this], compute);
-  }
-}
-
-function strictEquals<Type>(prev: Type, next: Type) {
-  return prev === next;
-}
-
-export class InputValue<Type> extends Value<Type> {
-  protected value: Type;
-  isEqual: IsEqual<Type>;
-
-  constructor(value: Type, isEqual = strictEquals) {
-    super();
-    this.value = value;
-    this.isEqual = isEqual;
-  }
-
-  extract() {
-    return this.value;
-  }
-
-  update(value: Type) {
-    if (this.isEqual(this.value, value)) return;
-    this.value = value;
-    for (const derived of this.derivedValues) {
-      derived.update();
-    }
-    for (const listener of this.updateListeners) {
-      listener(this.value);
-    }
-  }
-
-  debounce(time: number) {
-    // TODO: setup timers to update computed value
-    return this;
-  }
-}
-
-export class ComputedValue<Type> extends Value<Type> {
-  protected value: Type;
-  compute: () => Type;
-
-  constructor(compute: () => Type) {
-    super();
-    this.value = compute();
-    this.compute = compute;
-  }
-
-  extract() {
-    return this.value;
-  }
-
-  update() {
-    this.value = this.compute();
-    for (const derived of this.derivedValues) {
-      derived.update();
-    }
-    for (const listener of this.updateListeners) {
-      listener(this.value);
-    }
-  }
-}
-
-export class ProxyValue<Type> extends Value<Type> {
-  target!: Value<Type>;
-
-  constructor(target: Value<Type>) {
-    super();
-    this.setTarget(target);
-  }
-
-  setTarget(target: Value<Type>) {
-    if (this.target) this.target.removeDerivedValue(this);
-    this.target = target;
-    this.target.addDerivedValue(this);
-    this.update();
-  }
-
-  update() {
-    for (const derived of this.derivedValues) {
-      derived.update();
-    }
-    const target = this.extract();
-    for (const listener of this.updateListeners) {
-      listener(target);
-    }
-  }
-
-  deactivate() {
-    this.target.removeDerivedValue(this);
-  }
-
-  extract() {
-    return this.target.extract();
-  }
-}
-
-type DerivedValue<Type> = ProxyValue<Type> | ComputedValue<Type>;
 
 interface ConditionProps {
   if: Value<boolean | number>,
@@ -305,43 +73,13 @@ export function permuteValues(inputs: Value<any>[], values: Value<any>[] = []) {
   return values;
 }
 
-export class DeriveValueListener {
-  children: Set<DeriveValueListener> = new Set();
-  derived: Map<Value<any>, Value<any>> = new Map();
-  ref: any;
-
-  constructor(values: Value<any>[], parent?: DeriveValueListener) {
-    for (const value of values) {
-      value.addDeriveListener(this.addValue);
-    }
-    if (parent) parent.children.add(this);
-  }
-
-  addValue = (value: Value<any>, derived: DerivedValue<any>) => {
-    this.derived.set(value, derived);
-    for (const child of this.children) {
-      child.addValue(value, derived);
-    }
-  }
-
-  removeChild(child: DeriveValueListener) {
-    this.children.delete(child);
-  }
-
-  extract() {
-    const derived = this.derived;
-    this.derived = new Map();
-    return derived;
-  }
-}
-
 /** Inserts an element at the specified index in a parent element */
 export function insertAtIndex(parent: HTMLElement, indexValue: Value<number>, element: HTMLElement | Text) {
   const index = indexValue.extract();
   if (index >= parent.children.length) {
     parent.appendChild(element);
   } else {
-    parent.insertBefore(element, parent.children[index]);
+    parent.insertBefore(element, parent.children[index] as Element);
   }
 }
 
@@ -375,12 +113,13 @@ export function renderElement(
   element: ComponentChild,
   parentElement: HTMLElement,
   stateWatcher = new StateWatcher(),
+  // TODO: Create StaticValue
   childIndex: Value<number> = new InputValue(0),
   derivedListener?: DeriveValueListener,
 ): [Unrender | undefined, Value<number>] {
 
   if (isPrimitive(element)) {
-    const textNode = document.createTextNode(toString(element));
+    const textNode = document.createTextNode(primitiveToString(element));
     insertAtIndex(parentElement, childIndex, textNode);
     return [() => textNode.remove(), childIndex.computed((value) => value + 1)];
   }
@@ -388,7 +127,7 @@ export function renderElement(
   if (element instanceof Value) {
     const textNode = document.createTextNode('');
     const updateListener = (value: any) => {
-      textNode.textContent = toString(value);
+      textNode.textContent = primitiveToString(value);
     }
     element.addUpdateListener(updateListener);
     insertAtIndex(parentElement, childIndex, textNode);
@@ -419,21 +158,9 @@ export function renderElement(
       }
     }
 
-    type ListenerMetadata = [HTMLElement, keyof HTMLElementEventMap, EventListenerOrEventListenerObject];
-    const events: ListenerMetadata[] = [];
-
-    // TODO: Support all events
-    if (element.props.onChange) {
-      events.push([elementNode, 'change', element.props.onChange]);
-    }
-    if (element.props.onInput) {
-      events.push([elementNode, 'input', element.props.onInput]);
-    }
-    if (element.props.onClick) {
-      events.push([elementNode, 'click', element.props.onClick]);
-    }
-    for (const [elementNode, eventName, listener] of events) {
-      elementNode.addEventListener(eventName, listener);
+    const events = element.props.events || {};
+    for (const name in events) {
+      elementNode.addEventListener(name, events[name]);
     }
 
     let nextChildIndex: Value<number> = new InputValue(0);
@@ -445,8 +172,8 @@ export function renderElement(
     insertAtIndex(parentElement, childIndex, elementNode);
 
     const unrender = () => {
-      for (const [elementNode, eventName, listener] of events) {
-        elementNode.removeEventListener(eventName, listener);
+      for (const name in events) {
+        elementNode.removeEventListener(name, events[name]);
       }
       elementNode.remove()
     }
@@ -470,7 +197,8 @@ export function renderElement(
           const index = action[1];
           const input = new InputValue(nextData[index], component.props.itemIsEqual || undefined);
 
-          const startIndex = new ProxyValue(index === 0 ? childIndex : listMetadata[index - 1].endIndex);
+          const prevMetadata = listMetadata[index - 1];
+          const startIndex = new ProxyValue(prevMetadata ? prevMetadata.endIndex : childIndex);
           const childComponent: ElementNode<{}> = {
             type: function ListItem() { return component.props.each(input); },
             props: { children: [] },
@@ -486,19 +214,19 @@ export function renderElement(
           listMetadata.splice(index, 0, metadata);
 
           // Add proxy index to chain
-          const nextMetadata: ListItemMetadata | undefined = listMetadata[index + 1];
+          const nextMetadata = listMetadata[index + 1];
           const nextIndex = nextMetadata ? nextMetadata.startIndex : finalChildIndex;
           nextIndex.setTarget(metadata.endIndex);
         }
         if (action[0] === ACTIONS.remove) {
           const index = action[1];
-          const metadata = listMetadata[index];
+          const metadata = listMetadata[index]!;
 
           if (metadata.unrender) metadata.unrender();
 
           // Remove proxy index from chain
-          const nextMetadata: ListItemMetadata | undefined = listMetadata[index + 1];
-          const prevMetadata: ListItemMetadata | undefined = listMetadata[index - 1];
+          const nextMetadata = listMetadata[index + 1];
+          const prevMetadata = listMetadata[index - 1];
           const nextIndex = nextMetadata ? nextMetadata.startIndex : finalChildIndex;
           nextIndex.setTarget(prevMetadata ? prevMetadata.endIndex : childIndex)
           metadata.startIndex.deactivate();
@@ -509,7 +237,7 @@ export function renderElement(
 
       currentData = nextData;
       for (let index = 0; index < listMetadata.length; index++) {
-        listMetadata[index].input.update(currentData[index]);
+        listMetadata[index]!.input.update(currentData[index]);
       }
     }
 

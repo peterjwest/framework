@@ -1,23 +1,24 @@
 {
   "compilerOptions": {
-    "target": "ES2020",
-    "useDefineForClassFields": true,
-    "module": "ESNext",
-    "lib": ["ES2020", "DOM", "DOM.Iterable"],
-    "skipLibCheck": true,
-    "moduleResolution": "node",
+    "target": "es2022",
+    "lib": ["es2022", "DOM", "DOM.Iterable"],
+    "module": "node16",
+    "moduleResolution": "node16",
     "isolatedModules": true,
     "moduleDetection": "force",
     "declaration": true,
-    /* Linting */
+    "sourceMap": true,
     "strict": true,
+    "strictNullChecks": true,
+    "strictBindCallApply": true,
+    "alwaysStrict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
-    /* JSX settings */
+    "noUncheckedIndexedAccess": true,
+    "noImplicitAny": true,
     "jsx": "react-jsx",
     "jsxImportSource": "@app",
-    /* Import settings */
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "resolveJsonModule": true,

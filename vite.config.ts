@@ -6,6 +6,7 @@ export default defineConfig({
   build: {
     outDir: 'build',
     lib: {
+      name: 'build/index.js',
       entry: 'src/index.tsx',
     },
   },

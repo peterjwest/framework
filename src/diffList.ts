@@ -45,7 +45,7 @@ function maxDiffIndex(transformMap: Map<number, number>) {
 function createKeyMap<Key extends string>(list: Item<Key>[], key: Key) {
   const keyMap = new Map<any, number>();
   for (let i = 0; i < list.length; i++) {
-    keyMap.set(getItemKey(list[i], key), i);
+    keyMap.set(getItemKey(list[i]!, key), i);
   }
   return keyMap;
 }
@@ -59,7 +59,7 @@ export default function diffList<Key extends string>(currentList: Item<Key>[], n
   /** List of removed items, including ones to be replaced */
   const removedItemsList = [];
   for (let currentIndex = 0; currentIndex < currentList.length; currentIndex++) {
-    const itemKey = getItemKey(currentList[currentIndex], key);
+    const itemKey = getItemKey(currentList[currentIndex]!, key);
     const nextIndex = nextKeyMap.get(itemKey);
     if (nextIndex === undefined) {
       removedItemsList.push(currentIndex);
@@ -80,7 +80,7 @@ export default function diffList<Key extends string>(currentList: Item<Key>[], n
     if (removedItems.has(currentIndex)) {
       actions.push([ACTIONS.remove, currentIndex]);
     } else {
-      prunedCurrentList.push(currentList[currentIndex]);
+      prunedCurrentList.push(currentList[currentIndex]!);
     }
   }
   prunedCurrentList.reverse();
@@ -91,13 +91,13 @@ export default function diffList<Key extends string>(currentList: Item<Key>[], n
   const addedItems = new Set<number>();
   let added = 0;
   for (let nextIndex = 0; nextIndex < nextList.length; nextIndex++) {
-    const currentIndex = currentKeyMap.get(getItemKey(nextList[nextIndex], key));
+    const currentIndex = currentKeyMap.get(getItemKey(nextList[nextIndex]!, key));
 
     if (currentIndex === undefined) {
       if (added >= replaceCount) {
         addedItems.add(nextIndex);
       } else {
-        actions.push([ACTIONS.replace, removedItemsList[added], nextIndex])
+        actions.push([ACTIONS.replace, removedItemsList[added]!, nextIndex])
       }
       added++;
     }
@@ -108,7 +108,7 @@ export default function diffList<Key extends string>(currentList: Item<Key>[], n
   // Iterate backwards to avoid each change affecting the indexes of the next
   for (let nextIndex = nextList.length - 1; nextIndex >= 0; nextIndex--) {
     if (!addedItems.has(nextIndex)) {
-      prunedNextList.push(nextList[nextIndex]);
+      prunedNextList.push(nextList[nextIndex]!);
     }
   }
   prunedNextList.reverse();
@@ -117,13 +117,13 @@ export default function diffList<Key extends string>(currentList: Item<Key>[], n
   const transformMap = new Map<number, number>();
   let removedIndex = 0;
   for (let nextIndex = 0; nextIndex < prunedNextList.length; nextIndex++) {
-    const nextItemKey = getItemKey(prunedNextList[nextIndex], key);
+    const nextItemKey = getItemKey(prunedNextList[nextIndex]!, key);
     const currentIndex = currentKeyMap.get(nextItemKey);
     if (currentIndex !== undefined) {
       transformMap.set(currentIndex, nextIndex);
       currentKeyMap.delete(nextItemKey);
     } else {
-      transformMap.set(removedItemsList[removedIndex++], nextIndex);
+      transformMap.set(removedItemsList[removedIndex++]!, nextIndex);
     }
   }
 

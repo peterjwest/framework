@@ -1,5 +1,6 @@
-import { renderElement, Condition, List, Value, ComponentChildren, CreateState } from './framework';
-import { DeriveValueListener, StateWatcher, InputValue } from './framework';
+import { ComponentChildren, CreateState } from './jsx';
+import { Value, InputValue, DeriveValueListener } from './value';
+import { renderElement, Condition, List, StateWatcher } from './framework';
 
 function ErrorMessage({ message }: { message: Value<string> }) {
   return <div>{message}</div>;
@@ -22,9 +23,8 @@ function NestedComponent({ query }: { query: Value<string> }, createState: Creat
   </>;
 }
 
-
 export function Component({}, createState: CreateState) {
-  const fullName = createState('J');
+  const fullName = createState('J W');
   const search = createState('hi');
   const count = createState(2);
   // const results = search.debounce(100).computed(
@@ -41,16 +41,17 @@ export function Component({}, createState: CreateState) {
 
   return (
     <article>
-      <Section><h1>Hello {firstName} how are you?</h1></Section>
+      <Section><h1>Hello {firstName} how are you?</h1><a href="/foo">Link</a></Section>
       <>
         <input class="search-box" value={search.extract()} events={{ input: (event) => {
-          search.update((event.target as HTMLInputElement).value);
+          search.update(event.currentTarget.value);
         }, change: (event) => {
-          search.update((event.target as HTMLInputElement).value);
+          search.update(event.currentTarget.value);
         }}}/>
-        <div class="search-box" events={{ input: (event) => {
-          count.update(Number((event.target as HTMLInputElement).value));
+        <input type="number" class="search-box" value={count.extract()} events={{ input: (event) => {
+          count.update(Number(event.currentTarget.value));
         }}}/>
+        <button formaction="x" formmethod="x">Hi</button>
       </>
       <NestedComponent query={search} />
       <Condition
@@ -70,7 +71,7 @@ export function Component({}, createState: CreateState) {
                   return <div class="item">
                     <span>{item.get('name')} owned by {username} - </span>
                     <b>{count} </b>
-                    <button onClick={() => count.update(count.extract() + 1)}>Increment</button>
+                    <button events={{ click: () => count.update(count.extract() + 1)}}>Increment</button>
                   </div>;
                 }} />
               </>
