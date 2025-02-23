@@ -1,5 +1,5 @@
-import { MaybeValue } from './value';
-import { HTMLAttributes } from './html';
+import { WrapAttributes } from './util';
+import { GenericAttributes } from './html';
 
 type VerticalAlign = 'axis' | 'baseline' | 'bottom' | 'center' | 'top';
 type ColumnAlign = 'center' | 'left' | 'right';
@@ -26,214 +26,196 @@ type MathVariant = (
   'stretched'
 );
 
-export interface MathMLAttributes<Target extends EventTarget = MathMLElement> extends HTMLAttributes<Target> {
-  dir?: MaybeValue<'ltr' | 'rtl' | undefined>;
-  displaystyle?: MaybeValue<boolean | undefined>;
+export type MathMLAttributes<Target extends EventTarget = MathMLElement> = GenericAttributes<Target> & WrapAttributes<{
+  dir?: 'ltr' | 'rtl';
+  displaystyle?: boolean;
   /** @deprecated This feature is non-standard. See https://developer.mozilla.org/en-US/docs/Web/MathML/Global_attributes/href  */
-  href?: MaybeValue<string | undefined>;
+  href?: string;
   /** @deprecated See https://developer.mozilla.org/en-US/docs/Web/MathML/Global_attributes/mathbackground */
-  mathbackground?: MaybeValue<string | undefined>;
+  mathbackground?: string;
   /** @deprecated See https://developer.mozilla.org/en-US/docs/Web/MathML/Global_attributes/mathcolor */
-  mathcolor?: MaybeValue<string | undefined>;
+  mathcolor?: string;
   /** @deprecated See https://developer.mozilla.org/en-US/docs/Web/MathML/Global_attributes/mathsize */
-  mathsize?: MaybeValue<string | undefined>;
-  nonce?: MaybeValue<string | undefined>;
-  scriptlevel?: MaybeValue<string | undefined>;
-}
+  mathsize?: string;
+  nonce?: string;
+  scriptlevel?: string;
+}>;
 
-export interface AnnotationMathMLAttributes<T extends EventTarget> extends MathMLAttributes<T> {
-  encoding?: MaybeValue<string | undefined>;
+export type AnnotationMathMLAttributes<T extends EventTarget> = MathMLAttributes<T> & WrapAttributes<{
+  encoding?: string;
   /** @deprecated See https://developer.mozilla.org/en-US/docs/Web/MathML/Element/semantics#src */
-  src?: MaybeValue<string | undefined>;
-}
+  src?: string;
+}>;
 
-export interface AnnotationXmlMathMLAttributes<T extends EventTarget> extends MathMLAttributes<T> {
-  encoding?: MaybeValue<string | undefined>;
+export type AnnotationXmlMathMLAttributes<T extends EventTarget> = MathMLAttributes<T> & WrapAttributes<{
+  encoding?: string;
   /** @deprecated See https://developer.mozilla.org/en-US/docs/Web/MathML/Element/semantics#src */
-  src?: MaybeValue<string | undefined>;
-}
+  src?: string;
+}>;
 
-export interface MActionMathMLAttributes<T extends EventTarget> extends MathMLAttributes<T> {
+export type MActionMathMLAttributes<T extends EventTarget> = MathMLAttributes<T> & WrapAttributes<{
   /** @deprecated See https://developer.mozilla.org/en-US/docs/Web/MathML/Element/maction#actiontype */
-  actiontype?: MaybeValue<'statusline' | 'toggle' | undefined>;
+  actiontype?: 'statusline' | 'toggle';
   /** @deprecated See https://developer.mozilla.org/en-US/docs/Web/MathML/Element/maction#selection */
-  selection?: MaybeValue<string | undefined>;
-}
+  selection?: string;
+}>;
 
-export interface MathMathMLAttributes<T extends EventTarget> extends MathMLAttributes<T> {
-  display?: MaybeValue<'block' | 'inline' | undefined>;
-}
+export type MathMathMLAttributes<T extends EventTarget> = MathMLAttributes<T> & WrapAttributes<{
+  display?: 'block' | 'inline';
+}>;
 
-export interface MEncloseMathMLAttributes<T extends EventTarget> extends MathMLAttributes<T> {
-  notation?: MaybeValue<string | undefined>;
-}
+export type MEncloseMathMLAttributes<T extends EventTarget> = MathMLAttributes<T> & WrapAttributes<{
+  notation?: string;
+}>;
 
-export interface MErrorMathMLAttributes<T extends EventTarget> extends MathMLAttributes<T> {}
+export type MFencedMathMLAttributes<T extends EventTarget> = MathMLAttributes<T> & WrapAttributes<{
+  close?: string;
+  open?: string;
+  separators?: string;
+}>;
 
-export interface MFencedMathMLAttributes<T extends EventTarget> extends MathMLAttributes<T> {
-  close?: MaybeValue<string | undefined>;
-  open?: MaybeValue<string | undefined>;
-  separators?: MaybeValue<string | undefined>;
-}
-
-export interface MFracMathMLAttributes<T extends EventTarget> extends MathMLAttributes<T> {
+export type MFracMathMLAttributes<T extends EventTarget> = MathMLAttributes<T> & WrapAttributes<{
   /** @deprecated See https://developer.mozilla.org/en-US/docs/Web/MathML/Element/mfrac#denomalign */
-  denomalign?: MaybeValue<ColumnAlign | undefined>;
-  linethickness?: MaybeValue<string | undefined>;
+  denomalign?: ColumnAlign;
+  linethickness?: string;
   /** @deprecated See https://developer.mozilla.org/en-US/docs/Web/MathML/Element/mfrac#numalign */
-  numalign?: MaybeValue<ColumnAlign | undefined>;
-}
+  numalign?: ColumnAlign;
+}>;
 
-export interface MiMathMLAttributes<T extends EventTarget> extends MathMLAttributes<T> {
+export type MiMathMLAttributes<T extends EventTarget> = MathMLAttributes<T> & WrapAttributes<{
   /** The only value allowed in the current specification is normal (case insensitive)
    * See https://developer.mozilla.org/en-US/docs/Web/MathML/Element/mi#mathvariant */
-  mathvariant?: MaybeValue<MathVariant | undefined>;
-}
+  mathvariant?: MathVariant;
+}>;
 
-export interface MmultiScriptsMathMLAttributes<T extends EventTarget> extends MathMLAttributes<T> {
+export type MmultiScriptsMathMLAttributes<T extends EventTarget> = MathMLAttributes<T> & WrapAttributes<{
   /** @deprecated See https://developer.mozilla.org/en-US/docs/Web/MathML/Element/mmultiscripts#subscriptshift */
-  subscriptshift?: MaybeValue<string | undefined>;
+  subscriptshift?: string;
   /** @deprecated See https://developer.mozilla.org/en-US/docs/Web/MathML/Element/mmultiscripts#superscriptshift */
-  superscriptshift?: MaybeValue<string | undefined>;
-}
+  superscriptshift?: string;
+}>;
 
-export interface MNMathMLAttributes<T extends EventTarget> extends MathMLAttributes<T> {}
-
-export interface MOMathMLAttributes<T extends EventTarget> extends MathMLAttributes<T> {
+export type MOMathMLAttributes<T extends EventTarget> = MathMLAttributes<T> & WrapAttributes<{
   /** Non-standard attribute See https://developer.mozilla.org/en-US/docs/Web/MathML/Element/mo#accent */
-  accent?: MaybeValue<boolean | undefined>;
-  fence?: MaybeValue<boolean | undefined>;
-  largeop?: MaybeValue<boolean | undefined>;
-  lspace?: MaybeValue<string | undefined>;
-  maxsize?: MaybeValue<string | undefined>;
-  minsize?: MaybeValue<string | undefined>;
-  movablelimits?: MaybeValue<boolean | undefined>;
-  rspace?: MaybeValue<string | undefined>;
-  separator?: MaybeValue<boolean | undefined>;
-  stretchy?: MaybeValue<boolean | undefined>;
-  symmetric?: MaybeValue<boolean | undefined>;
-}
+  accent?: boolean;
+  fence?: boolean;
+  largeop?: boolean;
+  lspace?: string;
+  maxsize?: string;
+  minsize?: string;
+  movablelimits?: boolean;
+  rspace?: string;
+  separator?: boolean;
+  stretchy?: boolean;
+  symmetric?: boolean;
+}>;
 
-export interface MOverMathMLAttributes<T extends EventTarget> extends MathMLAttributes<T> {
-  accent?: MaybeValue<boolean | undefined>;
-}
+export type MOverMathMLAttributes<T extends EventTarget> = MathMLAttributes<T> & WrapAttributes<{
+  accent?: boolean;
+}>;
 
-export interface MPaddedMathMLAttributes<T extends EventTarget> extends MathMLAttributes<T> {
-  depth?: MaybeValue<string | undefined>;
-  height?: MaybeValue<string | undefined>;
-  lspace?: MaybeValue<string | undefined>;
-  voffset?: MaybeValue<string | undefined>;
-  width?: MaybeValue<string | undefined>;
-}
+export type MPaddedMathMLAttributes<T extends EventTarget> = MathMLAttributes<T> & WrapAttributes<{
+  depth?: string;
+  height?: string;
+  lspace?: string;
+  voffset?: string;
+  width?: string;
+}>;
 
-export interface MPhantomMathMLAttributes<T extends EventTarget> extends MathMLAttributes<T> {}
-
-export interface MPrescriptsMathMLAttributes<T extends EventTarget> extends MathMLAttributes<T> {}
-
-export interface MRootMathMLAttributes<T extends EventTarget> extends MathMLAttributes<T> {}
-
-export interface MRowMathMLAttributes<T extends EventTarget> extends MathMLAttributes<T> {}
-
-export interface MSMathMLAttributes<T extends EventTarget> extends MathMLAttributes<T> {
+export type MSMathMLAttributes<T extends EventTarget> = MathMLAttributes<T> & WrapAttributes<{
   /** @deprecated See https://developer.mozilla.org/en-US/docs/Web/MathML/Element/ms#browser_compatibility */
-  lquote?: MaybeValue<string | undefined>;
+  lquote?: string;
   /** @deprecated See https://developer.mozilla.org/en-US/docs/Web/MathML/Element/ms#browser_compatibility */
-  rquote?: MaybeValue<string | undefined>;
-}
+  rquote?: string;
+}>;
 
-export interface MSpaceMathMLAttributes<T extends EventTarget> extends MathMLAttributes<T> {
-  depth?: MaybeValue<string | undefined>;
-  height?: MaybeValue<string | undefined>;
-  width?: MaybeValue<string | undefined>;
-}
+export type MSpaceMathMLAttributes<T extends EventTarget> = MathMLAttributes<T> & WrapAttributes<{
+  depth?: string;
+  height?: string;
+  width?: string;
+}>;
 
-export interface MSqrtMathMLAttributes<T extends EventTarget> extends MathMLAttributes<T> {}
-
-export interface MStyleMathMLAttributes<T extends EventTarget> extends MathMLAttributes<T> {
+export type MStyleMathMLAttributes<T extends EventTarget> = MathMLAttributes<T> & WrapAttributes<{
   /** @deprecated See https://developer.mozilla.org/en-US/docs/Web/MathML/Element/mstyle#background */
-  background?: MaybeValue<string | undefined>;
+  background?: string;
   /** @deprecated See https://developer.mozilla.org/en-US/docs/Web/MathML/Element/mstyle#color */
-  color?: MaybeValue<string | undefined>;
+  color?: string;
   /** @deprecated See https://developer.mozilla.org/en-US/docs/Web/MathML/Element/mstyle#fontsize */
-  fontsize?: MaybeValue<string | undefined>;
+  fontsize?: string;
   /** @deprecated See https://developer.mozilla.org/en-US/docs/Web/MathML/Element/mstyle#fontstyle */
-  fontstyle?: MaybeValue<string | undefined>;
+  fontstyle?: string;
   /** @deprecated See https://developer.mozilla.org/en-US/docs/Web/MathML/Element/mstyle#fontweight */
-  fontweight?: MaybeValue<string | undefined>;
+  fontweight?: string;
   /** @deprecated See https://developer.mozilla.org/en-US/docs/Web/MathML/Element/mstyle#scriptminsize */
-  scriptminsize?: MaybeValue<string | undefined>;
+  scriptminsize?: string;
   /** @deprecated See https://developer.mozilla.org/en-US/docs/Web/MathML/Element/mstyle#scriptsizemultiplier */
-  scriptsizemultiplier?: MaybeValue<string | undefined>;
-}
+  scriptsizemultiplier?: string;
+}>;
 
-export interface MSubMathMLAttributes<T extends EventTarget> extends MathMLAttributes<T> {
+export type MSubMathMLAttributes<T extends EventTarget> = MathMLAttributes<T> & WrapAttributes<{
   /** @deprecated See https://developer.mozilla.org/en-US/docs/Web/MathML/Element/msub#subscriptshift */
-  subscriptshift?: MaybeValue<string | undefined>;
-}
+  subscriptshift?: string;
+}>;
 
-export interface MSubsupMathMLAttributes<T extends EventTarget> extends MathMLAttributes<T> {
+export type MSubsupMathMLAttributes<T extends EventTarget> = MathMLAttributes<T> & WrapAttributes<{
   /** @deprecated See https://developer.mozilla.org/en-US/docs/Web/MathML/Element/msubsup#subscriptshift */
-  subscriptshift?: MaybeValue<string | undefined>;
+  subscriptshift?: string;
   /** @deprecated See https://developer.mozilla.org/en-US/docs/Web/MathML/Element/msubsup#superscriptshift */
-  superscriptshift?: MaybeValue<string | undefined>;
-}
+  superscriptshift?: string;
+}>;
 
-export interface MSupMathMLAttributes<T extends EventTarget> extends MathMLAttributes<T> {
+export type MSupMathMLAttributes<T extends EventTarget> = MathMLAttributes<T> & WrapAttributes<{
   /** @deprecated See https://developer.mozilla.org/en-US/docs/Web/MathML/Element/msup#superscriptshift */
-  superscriptshift?: MaybeValue<string | undefined>;
-}
+  superscriptshift?: string;
+}>;
 
-export interface MTableMathMLAttributes<T extends EventTarget> extends MathMLAttributes<T> {
+export type MTableMathMLAttributes<T extends EventTarget> = MathMLAttributes<T> & WrapAttributes<{
   /** Non-standard attribute See https://developer.mozilla.org/en-US/docs/Web/MathML/Element/mtable#align */
-  align?: MaybeValue<VerticalAlign | undefined>;
+  align?: VerticalAlign;
   /** Non-standard attribute See https://developer.mozilla.org/en-US/docs/Web/MathML/Element/mtable#columnalign */
-  columnalign?: MaybeValue<ColumnAlign | undefined>;
+  columnalign?: ColumnAlign;
   /** Non-standard attribute See https://developer.mozilla.org/en-US/docs/Web/MathML/Element/mtable#columnlines */
-  columnlines?: MaybeValue<Border | undefined>;
+  columnlines?: Border;
   /** Non-standard attribute See https://developer.mozilla.org/en-US/docs/Web/MathML/Element/mtable#columnspacing */
-  columnspacing?: MaybeValue<string | undefined>;
+  columnspacing?: string;
   /** Non-standard attribute See https://developer.mozilla.org/en-US/docs/Web/MathML/Element/mtable#frame */
-  frame?: MaybeValue<Border | undefined>;
+  frame?: Border;
   /** Non-standard attribute See https://developer.mozilla.org/en-US/docs/Web/MathML/Element/mtable#framespacing */
-  framespacing?: MaybeValue<string | undefined>;
+  framespacing?: string;
   /** Non-standard attribute See https://developer.mozilla.org/en-US/docs/Web/MathML/Element/mtable#rowalign */
-  rowalign?: MaybeValue<VerticalAlign | undefined>;
+  rowalign?: VerticalAlign;
   /** Non-standard attribute See https://developer.mozilla.org/en-US/docs/Web/MathML/Element/mtable#rowlines */
-  rowlines?: MaybeValue<Border | undefined>;
+  rowlines?: Border;
   /** Non-standard attribute See https://developer.mozilla.org/en-US/docs/Web/MathML/Element/mtable#rowspacing */
-  rowspacing?: MaybeValue<string | undefined>;
+  rowspacing?: string;
   /** Non-standard attribute See https://developer.mozilla.org/en-US/docs/Web/MathML/Element/mtable#width */
-  width?: MaybeValue<string | undefined>;
-}
+  width?: string;
+}>;
 
-export interface MTdMathMLAttributes<T extends EventTarget> extends MathMLAttributes<T> {
-  columnspan?: MaybeValue<number | undefined>;
-  rowspan?: MaybeValue<number | undefined>;
+export type MTdMathMLAttributes<T extends EventTarget> = MathMLAttributes<T> & WrapAttributes<{
+  columnspan?: number;
+  rowspan?: number;
   /** Non-standard attribute See https://developer.mozilla.org/en-US/docs/Web/MathML/Element/mtd#columnalign */
-  columnalign?: MaybeValue<ColumnAlign | undefined>;
+  columnalign?: ColumnAlign;
   /** Non-standard attribute See https://developer.mozilla.org/en-US/docs/Web/MathML/Element/mtd#rowalign */
-  rowalign?: MaybeValue<VerticalAlign | undefined>;
-}
+  rowalign?: VerticalAlign;
+}>;
 
-export interface MTextMathMLAttributes<T extends EventTarget> extends MathMLAttributes<T> {}
-
-export interface MTrMathMLAttributes<T extends EventTarget> extends MathMLAttributes<T> {
+export type MTrMathMLAttributes<T extends EventTarget> = MathMLAttributes<T> & WrapAttributes<{
   /** Non-standard attribute See https://developer.mozilla.org/en-US/docs/Web/MathML/Element/mtr#columnalign */
-  columnalign?: MaybeValue<ColumnAlign | undefined>;
+  columnalign?: ColumnAlign;
   /** Non-standard attribute See https://developer.mozilla.org/en-US/docs/Web/MathML/Element/mtr#rowalign */
-  rowalign?: MaybeValue<VerticalAlign | undefined>;
-}
+  rowalign?: VerticalAlign;
+}>;
 
-export interface MUnderMathMLAttributes<T extends EventTarget> extends MathMLAttributes<T> {
-  accentunder?: MaybeValue<boolean | undefined>;
-}
+export type MUnderMathMLAttributes<T extends EventTarget> = MathMLAttributes<T> & WrapAttributes<{
+  accentunder?: boolean;
+}>;
 
-export interface MUnderoverMathMLAttributes<T extends EventTarget> extends MathMLAttributes<T> {
-  accent?: MaybeValue<boolean | undefined>;
-  accentunder?: MaybeValue<boolean | undefined>;
-}
-
-export interface SemanticsMathMLAttributes<T extends EventTarget> extends MathMLAttributes<T> {}
+export type MUnderoverMathMLAttributes<T extends EventTarget> = MathMLAttributes<T> & WrapAttributes<{
+  accent?: boolean;
+  accentunder?: boolean;
+}>;
 
 export interface IntrinsicMathMLElements {
   annotation: AnnotationMathMLAttributes<MathMLElement>;
@@ -243,32 +225,32 @@ export interface IntrinsicMathMLElements {
   math: MathMathMLAttributes<MathMLElement>;
   /** This feature is non-standard. See https://developer.mozilla.org/en-US/docs/Web/MathML/Element/menclose  */
   menclose: MEncloseMathMLAttributes<MathMLElement>;
-  merror: MErrorMathMLAttributes<MathMLElement>;
+  merror: MathMLAttributes<MathMLElement>;
   /** @deprecated See https://developer.mozilla.org/en-US/docs/Web/MathML/Element/mfenced */
   mfenced: MFencedMathMLAttributes<MathMLElement>;
   mfrac: MFracMathMLAttributes<MathMLElement>;
   mi: MiMathMLAttributes<MathMLElement>;
   mmultiscripts: MmultiScriptsMathMLAttributes<MathMLElement>;
-  mn: MNMathMLAttributes<MathMLElement>;
+  mn: MathMLAttributes<MathMLElement>;
   mo: MOMathMLAttributes<MathMLElement>;
   mover: MOverMathMLAttributes<MathMLElement>;
   mpadded: MPaddedMathMLAttributes<MathMLElement>;
-  mphantom: MPhantomMathMLAttributes<MathMLElement>;
-  mprescripts: MPrescriptsMathMLAttributes<MathMLElement>;
-  mroot: MRootMathMLAttributes<MathMLElement>;
-  mrow: MRowMathMLAttributes<MathMLElement>;
+  mphantom: MathMLAttributes<MathMLElement>;
+  mprescripts: MathMLAttributes<MathMLElement>;
+  mroot: MathMLAttributes<MathMLElement>;
+  mrow: MathMLAttributes<MathMLElement>;
   ms: MSMathMLAttributes<MathMLElement>;
   mspace: MSpaceMathMLAttributes<MathMLElement>;
-  msqrt: MSqrtMathMLAttributes<MathMLElement>;
+  msqrt: MathMLAttributes<MathMLElement>;
   mstyle: MStyleMathMLAttributes<MathMLElement>;
   msub: MSubMathMLAttributes<MathMLElement>;
   msubsup: MSubsupMathMLAttributes<MathMLElement>;
   msup: MSupMathMLAttributes<MathMLElement>;
   mtable: MTableMathMLAttributes<MathMLElement>;
   mtd: MTdMathMLAttributes<MathMLElement>;
-  mtext: MTextMathMLAttributes<MathMLElement>;
+  mtext: MathMLAttributes<MathMLElement>;
   mtr: MTrMathMLAttributes<MathMLElement>;
   munder: MUnderMathMLAttributes<MathMLElement>;
   munderover: MUnderMathMLAttributes<MathMLElement>;
-  semantics: SemanticsMathMLAttributes<MathMLElement>;
+  semantics: MathMLAttributes<MathMLElement>;
 }

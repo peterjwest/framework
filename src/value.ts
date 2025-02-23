@@ -16,9 +16,6 @@ type ExtractValues<Type extends Value<unknown>[]> = {
 /** Value which is derived from another Value */
 export type DerivedValue<Type> = ProxyValue<Type> | ComputedValue<Type>;
 
-/** Type which is either a raw value or wrapped in a Value */
-export type MaybeValue<Type> = Type | Value<Type>;
-
 /** A signal based wrapper for values */
 export abstract class Value<Type> {
   /** Values which use this Value in their computation */

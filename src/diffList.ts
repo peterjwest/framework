@@ -1,19 +1,9 @@
+import { createEnumNumeric  } from "./util";
+
 /** Item in a list which contains a key */
 export type Item<Key extends string> = { [ItemKey in Key]?: any }
 
-/** Expands a named type to show its contents */
-export type Expand<Type> = Type extends infer Obj ? { [Key in keyof Obj]: Obj[Key] } : never;
-
-/** Takes a string tuple and inverts it to an object */
-type InvertTuple<Type extends readonly string[]> = {
-  [Key in (keyof Type & `${number}`) as Type[Key]]: Key
-}
-
-/** Creates an enum from a string tuple */
-export function createEnumNumeric<const T extends readonly string[]>(arr: T): Expand<InvertTuple<T>> {
-  return Object.fromEntries(arr.map((value, index) => [value, index])) as Expand<InvertTuple<T>>;
-}
-
+/** Enum of list diff actions  */
 export const ACTIONS = createEnumNumeric(['move', 'add', 'remove', 'replace']);
 
 type MoveAction = [typeof ACTIONS.move, number, number];
@@ -22,6 +12,9 @@ type RemoveAction = [typeof ACTIONS.remove, number];
 type ReplaceAction = [typeof ACTIONS.replace, number, number];
 type Action = MoveAction | AddAction | RemoveAction | ReplaceAction;
 
+// TODO: Deal with duplicate keys
+
+/** Gets an item key, falling back to the item itself */
 function getItemKey<Key extends string>(item: Item<Key>, key: Key) {
   const itemKey = item[key];
   return itemKey === undefined || itemKey === null ? item : itemKey;
@@ -43,7 +36,7 @@ function maxDiffIndex(transformMap: Map<number, number>) {
 
 /** Creates a map from item keys to indexes */
 function createKeyMap<Key extends string>(list: Item<Key>[], key: Key) {
-  const keyMap = new Map<any, number>();
+  const keyMap = new Map<Item<Key>, number>();
   for (let i = 0; i < list.length; i++) {
     keyMap.set(getItemKey(list[i]!, key), i);
   }

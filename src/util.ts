@@ -1,13 +1,19 @@
 import { Primitive, ComponentChildren, ComponentChild } from './jsx';
+import { Value } from './value';
 
 /** Omits all methods from an object type */
 export type OmitMethods<Type> = {
   [Key in keyof Type as Type[Key] extends Function ? never : Key]: Type[Key];
 };
 
-/** Maps all values in an object to a specified type */
-export type MapValue<Type, Value> = {
-  [Key in keyof Type]?: Value;
+/** Maps all property values in an object to a specified type */
+export type ReplaceValues<Type, Value> = {
+  [Key in keyof Type]: Value;
+};
+
+/** Maps all property values to be optionally wrapped in a Value */
+export type WrapAttributes<Type> = {
+  [Key in keyof Type]?: Type[Key] | Value<Type[Key] | undefined>;
 };
 
 /** An event type for a handler with a specialised currentTarget */
@@ -40,4 +46,17 @@ export function childrenToArray(children: ComponentChildren | undefined): Compon
 /** Strict equality for Value comparison */
 export function strictEquals<Type>(prev: Type, next: Type) {
   return prev === next;
+}
+
+/** Expands a named type to show its contents */
+export type Expand<Type> = Type extends infer Obj ? { [Key in keyof Obj]: Obj[Key] } : never;
+
+/** Takes a string tuple and inverts it to an object */
+type InvertTuple<Type extends readonly string[]> = {
+  [Key in (keyof Type & `${number}`) as Type[Key]]: Key
+}
+
+/** Creates an enum from a string tuple */
+export function createEnumNumeric<const T extends readonly string[]>(arr: T): Expand<InvertTuple<T>> {
+  return Object.fromEntries(arr.map((value, index) => [value, index])) as Expand<InvertTuple<T>>;
 }

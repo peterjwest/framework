@@ -1,10 +1,8 @@
 import { ComponentChildren } from './jsx';
-import { MaybeValue } from './value';
-import { TargetedEvent, MapValue, OmitMethods } from './util';
+import { TargetedEvent, WrapAttributes, ReplaceValues, OmitMethods } from './util';
 import { AriaRole, AriaAttributes } from './aria';
 
-type Attributes = {};
-
+/** Prop for registering any event listener */
 export type EventProp<Target extends EventTarget> = {
   [Key in keyof HTMLElementEventMap]?: (
     this: HTMLAnchorElement,
@@ -22,28 +20,6 @@ type ReferrerPolicy = (
   'strict-origin-when-cross-origin' |
   'unsafe-url'
 );
-
-type AnchorTarget = '_self' | '_blank' | '_parent' | '_top';
-
-type Autocapitalize = (
-  'off' |
-  'none' |
-  'on' |
-  'sentences' |
-  'words' |
-  'characters'
-);
-
-type EnterKeyHint = (
-  'enter' |
-  'done' |
-  'go' |
-  'next' |
-  'previous' |
-  'search' |
-  'send'
-);
-
 
 type InputType = (
   'button' |
@@ -70,844 +46,635 @@ type InputType = (
   'week'
 );
 
+type AnchorTarget = '_self' | '_blank' | '_parent' | '_top';
+type AutoCapitalize = 'off' | 'none' | 'on' | 'sentences' | 'words' | 'characters';
+type EnterKeyHint = 'enter' | 'done' | 'go' | 'next' | 'previous' | 'search' | 'send';
 type CrossOrigin = 'anonymous' | 'use-credentials';
 type Align = 'left' | 'center' | 'right' | 'justify' | 'char';
 type VerticalAlign = 'top' | 'middle' | 'bottom' | 'baseline';
 
-type DOMCSSProperties = MapValue<Partial<OmitMethods<CSSStyleDeclaration>>, string | number | null>;
-type AllCSSProperties = { [key: string]: string | number | null | undefined };
+type DOMCSSProperties = ReplaceValues<Partial<OmitMethods<CSSStyleDeclaration>>, string | number | null>;
+type AllCSSProperties = { [key: string]: string | number | null };
 type CSSProperties = AllCSSProperties & DOMCSSProperties & { cssText?: string | null };
 
-export interface DOMAttributes<Target extends EventTarget> {
+export interface Props<Target extends EventTarget> {
   children?: ComponentChildren;
   events?: EventProp<Target>;
 }
 
-// export interface AllHTMLAttributes<RefType extends EventTarget = EventTarget>
-// extends Attributes, DOMAttributes<RefType>, AriaAttributes {
-//   // Standard HTML Attributes
-//   accept?: MaybeValue<string | undefined>;
-//   acceptCharset?: MaybeValue<string | undefined>;
-//   'accept-charset'?: MaybeValue<string | undefined>;
-//   accessKey?: MaybeValue<string | undefined>;
-//   accesskey?: MaybeValue<string | undefined>;
-//   action?: MaybeValue<string | undefined>;
-//   allow?: MaybeValue<string | undefined>;
-//   allowFullScreen?: MaybeValue<boolean | undefined>;
-//   allowTransparency?: MaybeValue<boolean | undefined>;
-//   alt?: MaybeValue<string | undefined>;
-//   as?: MaybeValue<string | undefined>;
-//   async?: MaybeValue<boolean | undefined>;
-//   autocomplete?: MaybeValue<string | undefined>;
-//   autoComplete?: MaybeValue<string | undefined>;
-//   autocorrect?: MaybeValue<string | undefined>;
-//   autoCorrect?: MaybeValue<string | undefined>;
-//   autofocus?: MaybeValue<boolean | undefined>;
-//   autoFocus?: MaybeValue<boolean | undefined>;
-//   autoPlay?: MaybeValue<boolean | undefined>;
-//   autoplay?: MaybeValue<boolean | undefined>;
-//   capture?: MaybeValue<boolean | string | undefined>;
-//   cellPadding?: MaybeValue<number | string | undefined>;
-//   cellSpacing?: MaybeValue<number | string | undefined>;
-//   charset?: MaybeValue<string | undefined>;
-//   challenge?: MaybeValue<string | undefined>;
-//   checked?: MaybeValue<boolean | undefined>;
-//   cite?: MaybeValue<string | undefined>;
-//   class?: MaybeValue<string | undefined>;
-//   cols?: MaybeValue<number | undefined>;
-//   colspan?: MaybeValue<number | undefined>;
-//   content?: MaybeValue<string | undefined>;
-//   contenteditable?: MaybeValue<boolean | '' | 'plaintext-only' | 'inherit' | undefined>;
-//   /** @deprecated See https://developer.mozilla.org/en-US/docs/Web/HTML/Global_attributes/contextmenu */
-//   contextMenu?: MaybeValue<string | undefined>;
-//   /** @deprecated See https://developer.mozilla.org/en-US/docs/Web/HTML/Global_attributes/contextmenu */
-//   contextmenu?: MaybeValue<string | undefined>;
-//   controls?: MaybeValue<boolean | undefined>;
-//   controlsList?: MaybeValue<string | undefined>;
-//   coords?: MaybeValue<string | undefined>;
-//   crossorigin?: MaybeValue<string | undefined>;
-//   data?: MaybeValue<string | undefined>;
-//   dateTime?: MaybeValue<string | undefined>;
-//   datetime?: MaybeValue<string | undefined>;
-//   default?: MaybeValue<boolean | undefined>;
-//   defaultChecked?: MaybeValue<boolean | undefined>;
-//   defaultValue?: MaybeValue<string | undefined>;
-//   defer?: MaybeValue<boolean | undefined>;
-//   dir?: MaybeValue<'auto' | 'rtl' | 'ltr' | undefined>;
-//   disabled?: MaybeValue<boolean | undefined>;
-//   disableRemotePlayback?: MaybeValue<boolean | undefined>;
-//   download?: MaybeValue<any | undefined>;
-//   decoding?: MaybeValue<'sync' | 'async' | 'auto' | undefined>;
-//   draggable?: MaybeValue<boolean | undefined>;
-//   encType?: MaybeValue<string | undefined>;
-//   enctype?: MaybeValue<string | undefined>;
-//   enterkeyhint?: MaybeValue<EnterKeyHint | undefined>;
-//   elementtiming?: MaybeValue<string | undefined>;
-//   exportparts?: MaybeValue<string | undefined>;
-//   for?: MaybeValue<string | undefined>;
-//   form?: MaybeValue<string | undefined>;
-//   formaction?: MaybeValue<string | undefined>;
-//   formenctype?: MaybeValue<string | undefined>;
-//   formmethod?: MaybeValue<string | undefined>;
-//   formnovalidate?: MaybeValue<boolean | undefined>;
-//   formtarget?: MaybeValue<string | undefined>;
-//   frameborder?: MaybeValue<number | string | undefined>;
-//   headers?: MaybeValue<string | undefined>;
-//   height?: MaybeValue<number | string | undefined>;
-//   hidden?: MaybeValue<boolean | 'hidden' | 'until-found' | undefined>;
-//   high?: MaybeValue<number | undefined>;
-//   href?: MaybeValue<string | undefined>;
-//   hrefLang?: MaybeValue<string | undefined>;
-//   hreflang?: MaybeValue<string | undefined>;
-//   htmlFor?: MaybeValue<string | undefined>;
-//   'http-equiv'?: MaybeValue<string | undefined>;
-//   icon?: MaybeValue<string | undefined>;
-//   id?: MaybeValue<string | undefined>;
-//   indeterminate?: MaybeValue<boolean | undefined>;
-//   inert?: MaybeValue<boolean | undefined>;
-//   inputMode?: MaybeValue<string | undefined>;
-//   inputmode?: MaybeValue<string | undefined>;
-//   integrity?: MaybeValue<string | undefined>;
-//   is?: MaybeValue<string | undefined>;
-//   keyParams?: MaybeValue<string | undefined>;
-//   keyType?: MaybeValue<string | undefined>;
-//   kind?: MaybeValue<string | undefined>;
-//   label?: MaybeValue<string | undefined>;
-//   lang?: MaybeValue<string | undefined>;
-//   list?: MaybeValue<string | undefined>;
-//   loading?: MaybeValue<'eager' | 'lazy' | undefined>;
-//   loop?: MaybeValue<boolean | undefined>;
-//   low?: MaybeValue<number | undefined>;
-//   manifest?: MaybeValue<string | undefined>;
-//   marginHeight?: MaybeValue<number | undefined>;
-//   marginWidth?: MaybeValue<number | undefined>;
-//   max?: MaybeValue<number | string | undefined>;
-//   maxlength?: MaybeValue<number | undefined>;
-//   media?: MaybeValue<string | undefined>;
-//   mediaGroup?: MaybeValue<string | undefined>;
-//   method?: MaybeValue<string | undefined>;
-//   min?: MaybeValue<number | string | undefined>;
-//   minlength?: MaybeValue<number | undefined>;
-//   multiple?: MaybeValue<boolean | undefined>;
-//   muted?: MaybeValue<boolean | undefined>;
-//   name?: MaybeValue<string | undefined>;
-//   nomodule?: MaybeValue<boolean | undefined>;
-//   nonce?: MaybeValue<string | undefined>;
-//   noValidate?: MaybeValue<boolean | undefined>;
-//   novalidate?: MaybeValue<boolean | undefined>;
-//   open?: MaybeValue<boolean | undefined>;
-//   optimum?: MaybeValue<number | undefined>;
-//   part?: MaybeValue<string | undefined>;
-//   pattern?: MaybeValue<string | undefined>;
-//   ping?: MaybeValue<string | undefined>;
-//   placeholder?: MaybeValue<string | undefined>;
-//   playsinline?: MaybeValue<boolean | undefined>;
-//   popover?: MaybeValue<'auto' | 'hint' | 'manual' | boolean | undefined>;
-//   popovertarget?: MaybeValue<string | undefined>;
-//   popoverTarget?: MaybeValue<string | undefined>;
-//   popovertargetaction?: MaybeValue<'hide' | 'show' | 'toggle' | undefined>;
-//   popoverTargetAction?: MaybeValue<'hide' | 'show' | 'toggle' | undefined>;
-//   poster?: MaybeValue<string | undefined>;
-//   preload?: MaybeValue<string | undefined>;
-//   radioGroup?: MaybeValue<string | undefined>;
-//   readonly?: MaybeValue<boolean | undefined>;
-//   readOnly?: MaybeValue<boolean | undefined>;
-//   referrerpolicy?: MaybeValue<ReferrerPolicy | undefined>;
-//   rel?: MaybeValue<string | undefined>;
-//   required?: MaybeValue<boolean | undefined>;
-//   reversed?: MaybeValue<boolean | undefined>;
-//   role?: MaybeValue<AriaRole | undefined>;
-//   rows?: MaybeValue<number | undefined>;
-//   rowspan?: MaybeValue<number | undefined>;
-//   sandbox?: MaybeValue<string | undefined>;
-//   scope?: MaybeValue<string | undefined>;
-//   scoped?: MaybeValue<boolean | undefined>;
-//   scrolling?: MaybeValue<string | undefined>;
-//   seamless?: MaybeValue<boolean | undefined>;
-//   selected?: MaybeValue<boolean | undefined>;
-//   shape?: MaybeValue<string | undefined>;
-//   size?: MaybeValue<number | undefined>;
-//   sizes?: MaybeValue<string | undefined>;
-//   slot?: MaybeValue<string | undefined>;
-//   span?: MaybeValue<number | undefined>;
-//   spellcheck?: MaybeValue<boolean | undefined>;
-//   src?: MaybeValue<string | undefined>;
-//   srcSet?: MaybeValue<string | undefined>;
-//   srcset?: MaybeValue<string | undefined>;
-//   srcDoc?: MaybeValue<string | undefined>;
-//   srcdoc?: MaybeValue<string | undefined>;
-//   srcLang?: MaybeValue<string | undefined>;
-//   srclang?: MaybeValue<string | undefined>;
-//   start?: MaybeValue<number | undefined>;
-//   step?: MaybeValue<number | string | undefined>;
-//   style?: MaybeValue<string | CSSProperties | undefined>;
-//   summary?: MaybeValue<string | undefined>;
-//   tabIndex?: MaybeValue<number | undefined>;
-//   tabindex?: MaybeValue<number | undefined>;
-//   target?: MaybeValue<string | undefined>;
-//   title?: MaybeValue<string | undefined>;
-//   type?: MaybeValue<string | undefined>;
-//   usemap?: MaybeValue<string | undefined>;
-//   value?: MaybeValue<string | string[] | number | undefined>;
-//   volume?: MaybeValue<string | number | undefined>;
-//   width?: MaybeValue<number | string | undefined>;
-//   wmode?: MaybeValue<string | undefined>;
-//   wrap?: MaybeValue<string | undefined>;
+// TODO: Compute from internal types
+// TODO: WrapAttributes
 
-//   // Non-standard Attributes
-//   autocapitalize?: MaybeValue<Autocapitalize | undefined>;
-//   disablePictureInPicture?: MaybeValue<boolean | undefined>;
-//   results?: MaybeValue<number | undefined>;
-//   translate?: MaybeValue<boolean | undefined>;
-
-//   // RDFa Attributes
-//   about?: MaybeValue<string | undefined>;
-//   datatype?: MaybeValue<string | undefined>;
-//   inlist?: MaybeValue<any>;
-//   prefix?: MaybeValue<string | undefined>;
-//   property?: MaybeValue<string | undefined>;
-//   resource?: MaybeValue<string | undefined>;
-//   typeof?: MaybeValue<string | undefined>;
-//   vocab?: MaybeValue<string | undefined>;
-
-//   // Microdata Attributes
-//   itemProp?: MaybeValue<string | undefined>;
-//   itemprop?: MaybeValue<string | undefined>;
-//   itemScope?: MaybeValue<boolean | undefined>;
-//   itemscope?: MaybeValue<boolean | undefined>;
-//   itemType?: MaybeValue<string | undefined>;
-//   itemtype?: MaybeValue<string | undefined>;
-//   itemID?: MaybeValue<string | undefined>;
-//   itemid?: MaybeValue<string | undefined>;
-//   itemRef?: MaybeValue<string | undefined>;
-//   itemref?: MaybeValue<string | undefined>;
-// }
-
-export interface HTMLAttributes<RefType extends EventTarget = EventTarget>
-extends Attributes, DOMAttributes<RefType>, AriaAttributes {
+/** Attributes common to all HTML elements */
+type GenericAttributes<T extends EventTarget> = Props<T> & WrapAttributes<AriaAttributes & {
   // Standard HTML Attributes
-  accesskey?: MaybeValue<string | undefined>;
-  autocapitalize?: MaybeValue<MaybeValue<Autocapitalize | undefined>>;
-  autocorrect?: MaybeValue<string | undefined>;
-  autofocus?: MaybeValue<boolean | undefined>;
-  class?: MaybeValue<string | undefined>;
-  contenteditable?: MaybeValue<boolean | '' | 'plaintext-only' | 'inherit' | undefined>;
-  dir?: MaybeValue<'auto' | 'rtl' | 'ltr' | undefined>;
-  draggable?: MaybeValue<boolean | undefined>;
-  enterkeyhint?: MaybeValue<EnterKeyHint | undefined>;
-  exportparts?: MaybeValue<string | undefined>;
-  hidden?: MaybeValue<boolean | 'hidden' | 'until-found' | undefined>;
-  id?: MaybeValue<string | undefined>;
-  inert?: MaybeValue<boolean | undefined>;
-  inputmode?: MaybeValue<string | undefined>;
-  inputMode?: MaybeValue<string | undefined>;
-  is?: MaybeValue<string | undefined>;
-  lang?: MaybeValue<string | undefined>;
-  nonce?: MaybeValue<string | undefined>;
-  part?: MaybeValue<string | undefined>;
-  popover?: MaybeValue<'auto' | 'hint' | 'manual' | boolean | undefined>;
-  slot?: MaybeValue<string | undefined>;
-  spellcheck?: MaybeValue<boolean | undefined>;
-  style?: MaybeValue<string | CSSProperties | undefined>;
-  tabindex?: MaybeValue<number | undefined>;
-  tabIndex?: MaybeValue<number | undefined>;
-  title?: MaybeValue<string | undefined>;
-  translate?: MaybeValue<boolean | undefined>;
+  accesskey?: string;
+  autocapitalize?: AutoCapitalize;
+  autocorrect?: string;
+  autofocus?: boolean;
+  class?: string;
+  contenteditable?: boolean | '' | 'plaintext-only' | 'inherit';
+  dir?: 'auto' | 'rtl' | 'ltr';
+  draggable?: boolean;
+  enterkeyhint?: EnterKeyHint;
+  exportparts?: string;
+  hidden?: boolean | 'hidden' | 'until-found';
+  id?: string;
+  inert?: boolean;
+  inputmode?: string;
+  is?: string;
+  lang?: string;
+  nonce?: string;
+  part?: string;
+  popover?: 'auto' | 'hint' | 'manual' | boolean;
+  slot?: string;
+  spellcheck?: boolean;
+  style?: string | CSSProperties;
+  tabindex?: number;
+  title?: string;
+  translate?: boolean;
 
   // WAI-ARIA Attributes
-  role?: MaybeValue<AriaRole | undefined>;
+  role?: AriaRole;
 
   // Non-standard Attributes
-  disablePictureInPicture?: MaybeValue<boolean | undefined>;
-  elementtiming?: MaybeValue<string | undefined>;
-  elementTiming?: MaybeValue<string | undefined>;
-  results?: MaybeValue<number | undefined>;
+  disablePictureInPicture?: boolean;
+  elementtiming?: string;
+  results?: number;
 
   // RDFa Attributes
-  about?: MaybeValue<string | undefined>;
-  datatype?: MaybeValue<string | undefined>;
-  inlist?: MaybeValue<any>;
-  prefix?: MaybeValue<string | undefined>;
-  property?: MaybeValue<string | undefined>;
-  resource?: MaybeValue<string | undefined>;
-  typeof?: MaybeValue<string | undefined>;
-  vocab?: MaybeValue<string | undefined>;
+  about?: string;
+  datatype?: string;
+  inlist?: any;
+  prefix?: string;
+  property?: string;
+  resource?: string;
+  typeof?: string;
+  vocab?: string;
 
   // Microdata Attributes
-  itemid?: MaybeValue<string | undefined>;
-  itemID?: MaybeValue<string | undefined>;
-  itemprop?: MaybeValue<string | undefined>;
-  itemProp?: MaybeValue<string | undefined>;
-  itemref?: MaybeValue<string | undefined>;
-  itemRef?: MaybeValue<string | undefined>;
-  itemscope?: MaybeValue<boolean | undefined>;
-  itemScope?: MaybeValue<boolean | undefined>;
-  itemtype?: MaybeValue<string | undefined>;
-  itemType?: MaybeValue<string | undefined>;
-}
+  itemid?: string;
+  itemprop?: string;
+  itemref?: string;
+  itemscope?: boolean;
+  itemtype?: string;
+}>;
 
-interface AnchorHTMLAttributes<T extends EventTarget = HTMLAnchorElement> extends HTMLAttributes<T> {
-  download?: MaybeValue<any>;
-  href?: MaybeValue<string | undefined>;
-  hreflang?: MaybeValue<string | undefined>;
-  media?: MaybeValue<string | undefined>;
-  ping?: MaybeValue<string | undefined>;
-  rel?: MaybeValue<string | undefined>;
-  target?: MaybeValue<AnchorTarget | undefined>;
-  type?: MaybeValue<string | undefined>;
-  referrerpolicy?: MaybeValue<ReferrerPolicy | undefined>;
-}
 
-interface AreaHTMLAttributes<T extends EventTarget = HTMLAreaElement> extends HTMLAttributes<T> {
-  alt?: MaybeValue<string | undefined>;
-  coords?: MaybeValue<string | undefined>;
-  download?: MaybeValue<any>;
-  href?: MaybeValue<string | undefined>;
-  hreflang?: MaybeValue<string | undefined>;
-  media?: MaybeValue<string | undefined>;
-  referrerpolicy?: MaybeValue<ReferrerPolicy | undefined>;
-  rel?: MaybeValue<string | undefined>;
-  shape?: MaybeValue<string | undefined>;
-  target?: MaybeValue<string | undefined>;
-}
+type AnchorAttributes = GenericAttributes<HTMLAnchorElement> & WrapAttributes<{
+  download?: any;
+  href?: string;
+  hreflang?: string;
+  media?: string;
+  ping?: string;
+  rel?: string;
+  target?: AnchorTarget;
+  type?: string;
+  referrerpolicy?: ReferrerPolicy;
+}>;
 
-interface AudioHTMLAttributes<T extends EventTarget = HTMLAudioElement> extends MediaHTMLAttributes<T> {}
+type AreaAttributes = GenericAttributes<HTMLAreaElement> & WrapAttributes<{
+  alt?: string;
+  coords?: string;
+  download?: any;
+  href?: string;
+  hreflang?: string;
+  media?: string;
+  referrerpolicy?: ReferrerPolicy;
+  rel?: string;
+  shape?: string;
+  target?: string;
+}>;
 
-interface BaseHTMLAttributes<T extends EventTarget = HTMLBaseElement> extends HTMLAttributes<T> {
-  href?: MaybeValue<string | undefined>;
-  target?: MaybeValue<string | undefined>;
-}
+type BaseAttributes = GenericAttributes<HTMLBaseElement> & WrapAttributes<{
+  href?: string;
+  target?: string;
+}>;
 
-interface BlockquoteHTMLAttributes<T extends EventTarget = HTMLQuoteElement> extends HTMLAttributes<T> {
-  cite?: MaybeValue<string | undefined>;
-}
+type BlockquoteAttributes = GenericAttributes<HTMLQuoteElement> & WrapAttributes<{
+  cite?: string;
+}>;
 
-interface ButtonHTMLAttributes<T extends EventTarget = HTMLButtonElement> extends HTMLAttributes<T> {
-  disabled?: MaybeValue<boolean | undefined>;
-  form?: MaybeValue<string | undefined>;
-  formaction?: MaybeValue<string | undefined>;
-  formenctype?: MaybeValue<string | undefined>;
-  formmethod?: MaybeValue<string | undefined>;
-  formnovalidate?: MaybeValue<boolean | undefined>;
-  formtarget?: MaybeValue<string | undefined>;
-  name?: MaybeValue<string | undefined>;
-  popovertarget?: MaybeValue<string | undefined>;
-  popovertargetaction?: MaybeValue<'hide' | 'show' | 'toggle' | undefined>;
-  type?: MaybeValue<'submit' | 'reset' | 'button' | undefined>;
-  value?: MaybeValue<string | number | undefined>;
-}
+type ButtonAttributes = GenericAttributes<HTMLButtonElement> & WrapAttributes<{
+  disabled?: boolean;
+  form?: string;
+  formaction?: string;
+  formenctype?: string;
+  formmethod?: string;
+  formnovalidate?: boolean;
+  formtarget?: string;
+  name?: string;
+  popovertarget?: string;
+  popovertargetaction?: 'hide' | 'show' | 'toggle';
+  type?: 'submit' | 'reset' | 'button';
+  value?: string | number;
+}>;
 
-interface CanvasHTMLAttributes<T extends EventTarget = HTMLCanvasElement> extends HTMLAttributes<T> {
-  height?: MaybeValue<number | string | undefined>;
-  width?: MaybeValue<number | string | undefined>;
-}
+type CanvasAttributes = GenericAttributes<HTMLCanvasElement> & WrapAttributes<{
+  height?: number | string;
+  width?: number | string;
+}>;
 
-interface ColHTMLAttributes<T extends EventTarget = HTMLTableColElement> extends HTMLAttributes<T> {
-  span?: MaybeValue<number | undefined>;
-  width?: MaybeValue<number | string | undefined>;
-}
+type ColumnAttributes = GenericAttributes<HTMLTableColElement> & WrapAttributes<{
+  span?: number;
+  width?: number | string;
+}>;
 
-interface ColgroupHTMLAttributes<T extends EventTarget = HTMLTableColElement> extends HTMLAttributes<T> {
-  span?: MaybeValue<number | undefined>;
-}
+type ColumnGroupAttributes = GenericAttributes<HTMLTableColElement> & WrapAttributes<{
+  span?: number;
+}>;
 
-interface DataHTMLAttributes<T extends EventTarget = HTMLDataElement> extends HTMLAttributes<T> {
-  value?: MaybeValue<string | number | undefined>;
-}
+type DataAttributes = GenericAttributes<HTMLDataElement> & WrapAttributes<{
+  value?: string | number;
+}>;
 
-interface DelHTMLAttributes<T extends EventTarget = HTMLModElement> extends HTMLAttributes<T> {
-  cite?: MaybeValue<string | undefined>;
-  datetime?: MaybeValue<string | undefined>;
-}
+type DeletedTextAttributes = GenericAttributes<HTMLModElement> & WrapAttributes<{
+  cite?: string;
+  datetime?: string;
+}>;
 
-interface DetailsHTMLAttributes<T extends EventTarget = HTMLDetailsElement> extends HTMLAttributes<T> {
-  open?: MaybeValue<boolean | undefined>;
-}
+type DetailsAttributes = GenericAttributes<HTMLDetailsElement> & WrapAttributes<{
+  open?: boolean;
+}>;
 
-interface DialogHTMLAttributes<T extends EventTarget = HTMLDialogElement> extends HTMLAttributes<T> {
-  open?: MaybeValue<boolean | undefined>;
-}
+type DialogAttributes = GenericAttributes<HTMLDialogElement> & WrapAttributes<{
+  open?: boolean;
+}>;
 
-interface EmbedHTMLAttributes<T extends EventTarget = HTMLEmbedElement> extends HTMLAttributes<T> {
-  height?: MaybeValue<number | string | undefined>;
-  src?: MaybeValue<string | undefined>;
-  type?: MaybeValue<string | undefined>;
-  width?: MaybeValue<number | string | undefined>;
-}
+type EmbedAttributes = GenericAttributes<HTMLEmbedElement> & WrapAttributes<{
+  height?: number | string;
+  src?: string;
+  type?: string;
+  width?: number | string;
+}>;
 
-interface FieldsetHTMLAttributes<T extends EventTarget = HTMLFieldSetElement> extends HTMLAttributes<T> {
-  disabled?: MaybeValue<boolean | undefined>;
-  form?: MaybeValue<string | undefined>;
-  name?: MaybeValue<string | undefined>;
-}
+type FieldsetAttributes = GenericAttributes<HTMLFieldSetElement> & WrapAttributes<{
+  disabled?: boolean;
+  form?: string;
+  name?: string;
+}>;
 
-interface FormHTMLAttributes<T extends EventTarget = HTMLFormElement> extends HTMLAttributes<T> {
-  'accept-charset'?: MaybeValue<string | undefined>;
-  action?: MaybeValue<string | undefined>;
-  autocomplete?: MaybeValue<string | undefined>;
-  enctype?: MaybeValue<string | undefined>;
-  method?: MaybeValue<string | undefined>;
-  name?: MaybeValue<string | undefined>;
-  novalidate?: MaybeValue<boolean | undefined>;
-  rel?: MaybeValue<string | undefined>;
-  target?: MaybeValue<string | undefined>;
-}
+type FormAttributes = GenericAttributes<HTMLFormElement> & WrapAttributes<{
+  'accept-charset'?: string;
+  action?: string;
+  autocomplete?: string;
+  enctype?: string;
+  method?: string;
+  name?: string;
+  novalidate?: boolean;
+  rel?: string;
+  target?: string;
+}>;
 
-interface IframeHTMLAttributes<T extends EventTarget = HTMLIFrameElement> extends HTMLAttributes<T> {
-  allow?: MaybeValue<string | undefined>;
-  allowFullScreen?: MaybeValue<boolean | undefined>;
-  allowTransparency?: MaybeValue<boolean | undefined>;
+type IframeAttributes = GenericAttributes<HTMLIFrameElement> & WrapAttributes<{
+  allow?: string;
+  allowFullScreen?: boolean;
+  allowTransparency?: boolean;
   /** @deprecated */
-  frameborder?: MaybeValue<number | string | undefined>;
-  height?: MaybeValue<number | string | undefined>;
+  frameborder?: number | string;
+  height?: number | string;
   loading?: 'eager' | 'lazy';
   /** @deprecated */
-  marginHeight?: MaybeValue<number | undefined>;
+  marginHeight?: number;
   /** @deprecated */
-  marginWidth?: MaybeValue<number | undefined>;
-  name?: MaybeValue<string | undefined>;
-  referrerpolicy?: MaybeValue<ReferrerPolicy | undefined>;
-  sandbox?: MaybeValue<string | undefined>;
+  marginWidth?: number;
+  name?: string;
+  referrerpolicy?: ReferrerPolicy;
+  sandbox?: string;
   /** @deprecated */
-  scrolling?: MaybeValue<string | undefined>;
-  seamless?: MaybeValue<boolean | undefined>;
-  src?: MaybeValue<string | undefined>;
-  srcdoc?: MaybeValue<string | undefined>;
-  srcDoc?: MaybeValue<string | undefined>;
-  width?: MaybeValue<number | string | undefined>;
-}
+  scrolling?: string;
+  seamless?: boolean;
+  src?: string;
+  srcdoc?: string;
+  width?: number | string;
+}>;
 
-interface ImgHTMLAttributes<T extends EventTarget = HTMLImageElement> extends HTMLAttributes<T> {
-  alt?: MaybeValue<string | undefined>;
-  crossorigin?: MaybeValue<CrossOrigin>;
-  decoding?: MaybeValue<'async' | 'auto' | 'sync' | undefined>;
-  height?: MaybeValue<number | string | undefined>;
-  loading?: MaybeValue<'eager' | 'lazy' | undefined>;
-  referrerpolicy?: MaybeValue<ReferrerPolicy | undefined>;
-  sizes?: MaybeValue<string | undefined>;
-  src?: MaybeValue<string | undefined>;
-  srcset?: MaybeValue<string | undefined>;
-  srcSet?: MaybeValue<string | undefined>;
-  usemap?: MaybeValue<string | undefined>;
-  width?: MaybeValue<number | string | undefined>;
-}
+type ImageAttributes = GenericAttributes<HTMLImageElement> & WrapAttributes<{
+  alt?: string;
+  crossorigin?: CrossOrigin;
+  decoding?: 'async' | 'auto' | 'sync';
+  height?: number | string;
+  loading?: 'eager' | 'lazy';
+  referrerpolicy?: ReferrerPolicy;
+  sizes?: string;
+  src?: string;
+  srcset?: string;
+  usemap?: string;
+  width?: number | string;
+}>;
 
-interface InputHTMLAttributes<T extends EventTarget = HTMLInputElement> extends HTMLAttributes<T> {
-  accept?: MaybeValue<string | undefined>;
-  alt?: MaybeValue<string | undefined>;
-  autocomplete?: MaybeValue<string | undefined>;
-  capture?: MaybeValue<'user' | 'environment' | undefined>;
-  checked?: MaybeValue<boolean | undefined>;
-  defaultChecked?: MaybeValue<boolean | undefined>;
-  defaultValue?: MaybeValue<string | number | undefined>;
-  disabled?: MaybeValue<boolean | undefined>;
-  enterkeyhint?: MaybeValue<EnterKeyHint | undefined>;
-  form?: MaybeValue<string | undefined>;
-  formaction?: MaybeValue<string | undefined>;
-  formenctype?: MaybeValue<string | undefined>;
-  formmethod?: MaybeValue<string | undefined>;
-  formnovalidate?: MaybeValue<boolean | undefined>;
-  formtarget?: MaybeValue<string | undefined>;
-  height?: MaybeValue<number | string | undefined>;
-  indeterminate?: MaybeValue<boolean | undefined>;
-  list?: MaybeValue<string | undefined>;
-  max?: MaybeValue<number | string | undefined>;
-  maxlength?: MaybeValue<number | undefined>;
-  min?: MaybeValue<number | string | undefined>;
-  minlength?: MaybeValue<number | undefined>;
-  multiple?: MaybeValue<boolean | undefined>;
-  name?: MaybeValue<string | undefined>;
-  pattern?: MaybeValue<string | undefined>;
-  placeholder?: MaybeValue<string | undefined>;
-  readonly?: MaybeValue<boolean | undefined>;
-  required?: MaybeValue<boolean | undefined>;
-  size?: MaybeValue<number | undefined>;
-  src?: MaybeValue<string | undefined>;
-  step?: MaybeValue<number | string | undefined>;
-  type?: MaybeValue<InputType | undefined>;
-  value?: MaybeValue<string | number | undefined>;
-  width?: MaybeValue<number | string | undefined>;
-}
+type InputAttributes = GenericAttributes<HTMLInputElement> & WrapAttributes<{
+  accept?: string;
+  alt?: string;
+  autocomplete?: string;
+  capture?: 'user' | 'environment';
+  checked?: boolean;
+  defaultChecked?: boolean;
+  defaultValue?: string | number;
+  disabled?: boolean;
+  enterkeyhint?: EnterKeyHint;
+  form?: string;
+  formaction?: string;
+  formenctype?: string;
+  formmethod?: string;
+  formnovalidate?: boolean;
+  formtarget?: string;
+  height?: number | string;
+  indeterminate?: boolean;
+  list?: string;
+  max?: number | string;
+  maxlength?: number;
+  min?: number | string;
+  minlength?: number;
+  multiple?: boolean;
+  name?: string;
+  pattern?: string;
+  placeholder?: string;
+  readonly?: boolean;
+  required?: boolean;
+  size?: number;
+  src?: string;
+  step?: number | string;
+  type?: InputType;
+  value?: string | number;
+  width?: number | string;
+}>;
 
-interface InsHTMLAttributes<T extends EventTarget = HTMLModElement> extends HTMLAttributes<T> {
-  cite?: MaybeValue<string | undefined>;
-  datetime?: MaybeValue<string | undefined>;
-}
+type InsertedTextAttributes = GenericAttributes<HTMLModElement> & WrapAttributes<{
+  cite?: string;
+  datetime?: string;
+}>;
 
-interface KeygenHTMLAttributes<T extends EventTarget = HTMLUnknownElement> extends HTMLAttributes<T> {
-  challenge?: MaybeValue<string | undefined>;
-  disabled?: MaybeValue<boolean | undefined>;
-  form?: MaybeValue<string | undefined>;
-  keyType?: MaybeValue<string | undefined>;
-  keyParams?: MaybeValue<string | undefined>;
-  name?: MaybeValue<string | undefined>;
-}
+type KeygenAttributes = GenericAttributes<HTMLUnknownElement> & WrapAttributes<{
+  challenge?: string;
+  disabled?: boolean;
+  form?: string;
+  keyType?: string;
+  keyParams?: string;
+  name?: string;
+}>;
 
-interface LabelHTMLAttributes<T extends EventTarget = HTMLLabelElement> extends HTMLAttributes<T> {
-  for?: MaybeValue<string | undefined>;
-  form?: MaybeValue<string | undefined>;
-  htmlFor?: MaybeValue<string | undefined>;
-}
+type LabelAttributes = GenericAttributes<HTMLLabelElement> & WrapAttributes<{
+  for?: string;
+  form?: string;
+  htmlFor?: string;
+}>;
 
-interface LiHTMLAttributes<T extends EventTarget = HTMLLIElement> extends HTMLAttributes<T> {
-  value?: MaybeValue<string | number | undefined>;
-}
+type ListItemAttributes = GenericAttributes<HTMLLIElement> & WrapAttributes<{
+  value?: string | number;
+}>;
 
-interface LinkHTMLAttributes<T extends EventTarget = HTMLLinkElement> extends HTMLAttributes<T> {
-  as?: MaybeValue<string | undefined>;
-  crossorigin?: MaybeValue<CrossOrigin>;
-  fetchPriority?: MaybeValue<'high' | 'low' | 'auto' | undefined>;
-  href?: MaybeValue<string | undefined>;
-  hreflang?: MaybeValue<string | undefined>;
-  integrity?: MaybeValue<string | undefined>;
-  media?: MaybeValue<string | undefined>;
-  imageSrcSet?: MaybeValue<string | undefined>;
-  referrerpolicy?: MaybeValue<ReferrerPolicy | undefined>;
-  rel?: MaybeValue<string | undefined>;
-  sizes?: MaybeValue<string | undefined>;
-  type?: MaybeValue<string | undefined>;
-  charset?: MaybeValue<string | undefined>;
-}
+type LinkAttributes = GenericAttributes<HTMLLinkElement> & WrapAttributes<{
+  as?: string;
+  crossorigin?: CrossOrigin;
+  fetchPriority?: 'high' | 'low' | 'auto';
+  href?: string;
+  hreflang?: string;
+  integrity?: string;
+  media?: string;
+  imageSrcSet?: string;
+  referrerpolicy?: ReferrerPolicy;
+  rel?: string;
+  sizes?: string;
+  type?: string;
+  charset?: string;
+}>;
 
-interface MapHTMLAttributes<T extends EventTarget = HTMLMapElement> extends HTMLAttributes<T> {
-  name?: MaybeValue<string | undefined>;
-}
+type MapAttributes = GenericAttributes<HTMLMapElement> & WrapAttributes<{
+  name?: string;
+}>;
 
-interface MarqueeHTMLAttributes<T extends EventTarget = HTMLMarqueeElement> extends HTMLAttributes<T> {
-  behavior?: MaybeValue<'scroll' | 'slide' | 'alternate' | undefined>;
-  bgColor?: MaybeValue<string | undefined>;
-  direction?: MaybeValue<'left' | 'right' | 'up' | 'down' | undefined>;
-  height?: MaybeValue<number | string | undefined>;
-  hspace?: MaybeValue<number | string | undefined>;
-  loop?: MaybeValue<number | string | undefined>;
-  scrollAmount?: MaybeValue<number | string | undefined>;
-  scrollDelay?: MaybeValue<number | string | undefined>;
-  trueSpeed?: MaybeValue<boolean | undefined>;
-  vspace?: MaybeValue<number | string | undefined>;
-  width?: MaybeValue<number | string | undefined>;
-}
+type MarqueeAttributes = GenericAttributes<HTMLMarqueeElement> & WrapAttributes<{
+  behavior?: 'scroll' | 'slide' | 'alternate';
+  bgColor?: string;
+  direction?: 'left' | 'right' | 'up' | 'down';
+  height?: number | string;
+  hspace?: number | string;
+  loop?: number | string;
+  scrollAmount?: number | string;
+  scrollDelay?: number | string;
+  trueSpeed?: boolean;
+  vspace?: number | string;
+  width?: number | string;
+}>;
 
-interface MediaHTMLAttributes<T extends EventTarget = HTMLMediaElement> extends HTMLAttributes<T> {
-  autoplay?: MaybeValue<boolean | undefined>;
-  autoPlay?: MaybeValue<boolean | undefined>;
-  controls?: MaybeValue<boolean | undefined>;
-  controlsList?: MaybeValue<string | undefined>;
-  crossorigin?: MaybeValue<CrossOrigin>;
-  loop?: MaybeValue<boolean | undefined>;
-  mediaGroup?: MaybeValue<string | undefined>;
-  muted?: MaybeValue<boolean | undefined>;
-  playsinline?: MaybeValue<boolean | undefined>;
-  preload?: MaybeValue<string | undefined>;
-  src?: MaybeValue<string | undefined>;
-  volume?: MaybeValue<string | number | undefined>;
-}
+type MediaHTMLAttributes<T extends EventTarget> = GenericAttributes<T> & WrapAttributes<{
+  autoplay?: boolean;
+  controls?: boolean;
+  controlsList?: string;
+  crossorigin?: CrossOrigin;
+  loop?: boolean;
+  mediaGroup?: string;
+  muted?: boolean;
+  playsinline?: boolean;
+  preload?: string;
+  src?: string;
+  volume?: string | number;
+}>;
 
-interface MenuHTMLAttributes<T extends EventTarget = HTMLMenuElement> extends HTMLAttributes<T> {
-  type?: MaybeValue<string | undefined>;
-}
+type MenuAttributes = GenericAttributes<HTMLMenuElement> & WrapAttributes<{
+  type?: string;
+}>;
 
-interface MetaHTMLAttributes<T extends EventTarget = HTMLMetaElement> extends HTMLAttributes<T> {
-  charset?: MaybeValue<string | undefined>;
-  content?: MaybeValue<string | undefined>;
-  'http-equiv'?: MaybeValue<string | undefined>;
-  name?: MaybeValue<string | undefined>;
-  media?: MaybeValue<string | undefined>;
-}
+type MetaAttributes = GenericAttributes<HTMLMetaElement> & WrapAttributes<{
+  charset?: string;
+  content?: string;
+  'http-equiv'?: string;
+  name?: string;
+  media?: string;
+}>;
 
-interface MeterHTMLAttributes<T extends EventTarget = HTMLMeterElement> extends HTMLAttributes<T> {
-  form?: MaybeValue<string | undefined>;
-  high?: MaybeValue<number | undefined>;
-  low?: MaybeValue<number | undefined>;
-  max?: MaybeValue<number | string | undefined>;
-  min?: MaybeValue<number | string | undefined>;
-  optimum?: MaybeValue<number | undefined>;
-  value?: MaybeValue<string | number | undefined>;
-}
+type MeterAttributes = GenericAttributes<HTMLMeterElement> & WrapAttributes<{
+  form?: string;
+  high?: number;
+  low?: number;
+  max?: number | string;
+  min?: number | string;
+  optimum?: number;
+  value?: string | number;
+}>;
 
-interface ObjectHTMLAttributes<T extends EventTarget = HTMLObjectElement> extends HTMLAttributes<T> {
-  classID?: MaybeValue<string | undefined>;
-  data?: MaybeValue<string | undefined>;
-  form?: MaybeValue<string | undefined>;
-  height?: MaybeValue<number | string | undefined>;
-  name?: MaybeValue<string | undefined>;
-  type?: MaybeValue<string | undefined>;
-  usemap?: MaybeValue<string | undefined>;
-  width?: MaybeValue<number | string | undefined>;
-  wmode?: MaybeValue<string | undefined>;
-}
+type ObjectAttributes = GenericAttributes<HTMLObjectElement> & WrapAttributes<{
+  classID?: string;
+  data?: string;
+  form?: string;
+  height?: number | string;
+  name?: string;
+  type?: string;
+  usemap?: string;
+  width?: number | string;
+  wmode?: string;
+}>;
 
-interface OlHTMLAttributes<T extends EventTarget = HTMLOListElement> extends HTMLAttributes<T> {
-  reversed?: MaybeValue<boolean | undefined>;
-  start?: MaybeValue<number | undefined>;
-  type?: MaybeValue<'1' | 'a' | 'A' | 'i' | 'I' | undefined>;
-}
+type OrderedListAttributes = GenericAttributes<HTMLOListElement> & WrapAttributes<{
+  reversed?: boolean;
+  start?: number;
+  type?: '1' | 'a' | 'A' | 'i' | 'I';
+}>;
 
-interface OptgroupHTMLAttributes<T extends EventTarget = HTMLOptGroupElement> extends HTMLAttributes<T> {
-  disabled?: MaybeValue<boolean | undefined>;
-  label?: MaybeValue<string | undefined>;
-}
+type OptionGroupAttributes = GenericAttributes<HTMLOptGroupElement> & WrapAttributes<{
+  disabled?: boolean;
+  label?: string;
+}>;
 
-interface OptionHTMLAttributes<T extends EventTarget = HTMLOptionElement> extends HTMLAttributes<T> {
-  disabled?: MaybeValue<boolean | undefined>;
-  label?: MaybeValue<string | undefined>;
-  selected?: MaybeValue<boolean | undefined>;
-  value?: MaybeValue<string | number | undefined>;
-}
+type OptionAttributes = GenericAttributes<HTMLOptionElement> & WrapAttributes<{
+  disabled?: boolean;
+  label?: string;
+  selected?: boolean;
+  value?: string | number;
+}>;
 
-interface OutputHTMLAttributes<T extends EventTarget = HTMLOutputElement> extends HTMLAttributes<T> {
-  for?: MaybeValue<string | undefined>;
-  form?: MaybeValue<string | undefined>;
-  htmlFor?: MaybeValue<string | undefined>;
-  name?: MaybeValue<string | undefined>;
-}
+type OutputAttributes = GenericAttributes<HTMLOutputElement> & WrapAttributes<{
+  for?: string;
+  form?: string;
+  htmlFor?: string;
+  name?: string;
+}>;
 
-interface ParamHTMLAttributes<T extends EventTarget = HTMLParamElement> extends HTMLAttributes<T> {
-  name?: MaybeValue<string | undefined>;
-  value?: MaybeValue<string | number | undefined>;
-}
+type ParamAttributes = GenericAttributes<HTMLParamElement> & WrapAttributes<{
+  name?: string;
+  value?: string | number;
+}>;
 
-interface ProgressHTMLAttributes<T extends EventTarget = HTMLProgressElement> extends HTMLAttributes<T> {
-  max?: MaybeValue<number | string | undefined>;
-  value?: MaybeValue<string | number | undefined>;
-}
+type ProgressAttributes = GenericAttributes<HTMLProgressElement> & WrapAttributes<{
+  max?: number | string;
+  value?: string | number;
+}>;
 
-interface QuoteHTMLAttributes<T extends EventTarget = HTMLQuoteElement> extends HTMLAttributes<T> {
-  cite?: MaybeValue<string | undefined>;
-}
+type QuoteAttributes = GenericAttributes<HTMLQuoteElement> & WrapAttributes<{
+  cite?: string;
+}>;
 
-interface ScriptHTMLAttributes<T extends EventTarget = HTMLScriptElement> extends HTMLAttributes<T> {
-  async?: MaybeValue<boolean | undefined>;
-  /** @deprecated */
-  charset?: MaybeValue<string | undefined>;
-  /** @deprecated */
-  crossorigin?: MaybeValue<CrossOrigin>;
-  defer?: MaybeValue<boolean | undefined>;
-  integrity?: MaybeValue<string | undefined>;
-  nomodule?: MaybeValue<boolean | undefined>;
-  noModule?: MaybeValue<boolean | undefined>;
-  referrerpolicy?: MaybeValue<ReferrerPolicy | undefined>;
-  src?: MaybeValue<string | undefined>;
-  type?: MaybeValue<string | undefined>;
-}
+type ScriptAttributes = GenericAttributes<HTMLScriptElement> & WrapAttributes<{
+  async?: boolean;
+  /** @deprecated See: https://developer.mozilla.org/en-US/docs/Web/HTML/Element/script#charset */
+  charset?: string;
+  crossorigin?: CrossOrigin;
+  defer?: boolean;
+  integrity?: string;
+  /** @deprecated See: https://developer.mozilla.org/en-US/docs/Web/HTML/Element/script#language */
+  language?: string;
+  nomodule?: boolean;
+  referrerpolicy?: ReferrerPolicy;
+  src?: string;
+  type?: string;
+}>;
 
-interface SelectHTMLAttributes<T extends EventTarget = HTMLSelectElement> extends HTMLAttributes<T> {
-  autocomplete?: MaybeValue<string | undefined>;
-  autoComplete?: MaybeValue<string | undefined>;
-  defaultValue?: MaybeValue<string | number | undefined>;
-  disabled?: MaybeValue<boolean | undefined>;
-  form?: MaybeValue<string | undefined>;
-  multiple?: MaybeValue<boolean | undefined>;
-  name?: MaybeValue<string | undefined>;
-  required?: MaybeValue<boolean | undefined>;
-  size?: MaybeValue<number | undefined>;
-  value?: MaybeValue<string | number | undefined>;
-}
+type SelectAttributes = GenericAttributes<HTMLSelectElement> & WrapAttributes<{
+  autocomplete?: string;
+  defaultValue?: string | number;
+  disabled?: boolean;
+  form?: string;
+  multiple?: boolean;
+  name?: string;
+  required?: boolean;
+  size?: number;
+  value?: string | number;
+}>;
 
-interface SlotHTMLAttributes<T extends EventTarget = HTMLSlotElement> extends HTMLAttributes<T> {
-  name?: MaybeValue<string | undefined>;
-}
+type SlotAttributes = GenericAttributes<HTMLSlotElement> & WrapAttributes<{
+  name?: string;
+}>;
 
-interface SourceHTMLAttributes<T extends EventTarget = HTMLSourceElement> extends HTMLAttributes<T> {
-  height?: MaybeValue<number | string | undefined>;
-  media?: MaybeValue<string | undefined>;
-  sizes?: MaybeValue<string | undefined>;
-  src?: MaybeValue<string | undefined>;
-  srcset?: MaybeValue<string | undefined>;
-  srcSet?: MaybeValue<string | undefined>;
-  type?: MaybeValue<string | undefined>;
-  width?: MaybeValue<number | string | undefined>;
-}
+type SourceAttributes = GenericAttributes<HTMLSourceElement> & WrapAttributes<{
+  height?: number | string;
+  media?: string;
+  sizes?: string;
+  src?: string;
+  srcset?: string;
+  type?: string;
+  width?: number | string;
+}>;
 
-interface StyleHTMLAttributes<T extends EventTarget = HTMLStyleElement> extends HTMLAttributes<T> {
-  media?: MaybeValue<string | undefined>;
-  scoped?: MaybeValue<boolean | undefined>;
-  type?: MaybeValue<string | undefined>;
-}
+type StyleAttributes = GenericAttributes<HTMLStyleElement> & WrapAttributes<{
+  media?: string;
+  scoped?: boolean;
+  type?: string;
+}>;
 
-interface TableHTMLAttributes<T extends EventTarget = HTMLTableElement> extends HTMLAttributes<T> {
-  cellPadding?: MaybeValue<string | undefined>;
-  cellSpacing?: MaybeValue<string | undefined>;
-  summary?: MaybeValue<string | undefined>;
-  width?: MaybeValue<number | string | undefined>;
-}
+type TableAttributes = GenericAttributes<HTMLTableElement> & WrapAttributes<{
+  cellPadding?: string;
+  cellSpacing?: string;
+  summary?: string;
+  width?: number | string;
+}>;
 
-interface TdHTMLAttributes<T extends EventTarget = HTMLTableCellElement> extends HTMLAttributes<T> {
-  align?: MaybeValue<Align | undefined>;
-  colspan?: MaybeValue<number | undefined>;
-  headers?: MaybeValue<string | undefined>;
-  rowspan?: MaybeValue<number | undefined>;
-  scope?: MaybeValue<string | undefined>;
-  abbr?: MaybeValue<string | undefined>;
-  height?: MaybeValue<number | string | undefined>;
-  width?: MaybeValue<number | string | undefined>;
-  valign?: MaybeValue<VerticalAlign | undefined>;
-}
+type TableDataAttributes = GenericAttributes<HTMLTableCellElement> & WrapAttributes<{
+  align?: Align;
+  colspan?: number;
+  headers?: string;
+  rowspan?: number;
+  scope?: string;
+  abbr?: string;
+  height?: number | string;
+  width?: number | string;
+  valign?: VerticalAlign;
+}>;
 
-interface TextareaHTMLAttributes<T extends EventTarget = HTMLTextAreaElement> extends HTMLAttributes<T> {
-  autocomplete?: MaybeValue<string | undefined>;
-  autoComplete?: MaybeValue<string | undefined>;
-  cols?: MaybeValue<number | undefined>;
-  defaultValue?: MaybeValue<string | undefined>;
-  dirName?: MaybeValue<string | undefined>;
-  disabled?: MaybeValue<boolean | undefined>;
-  form?: MaybeValue<string | undefined>;
-  maxlength?: MaybeValue<number | undefined>;
-  minlength?: MaybeValue<number | undefined>;
-  name?: MaybeValue<string | undefined>;
-  placeholder?: MaybeValue<string | undefined>;
-  readOnly?: MaybeValue<boolean | undefined>;
-  required?: MaybeValue<boolean | undefined>;
-  rows?: MaybeValue<number | undefined>;
-  value?: MaybeValue<string | number | undefined>;
-  wrap?: MaybeValue<string | undefined>;
-}
+type TextareaAttributes = GenericAttributes<HTMLTextAreaElement> & WrapAttributes<{
+  autocomplete?: string;
+  cols?: number;
+  defaultValue?: string;
+  dirName?: string;
+  disabled?: boolean;
+  form?: string;
+  maxlength?: number;
+  minlength?: number;
+  name?: string;
+  placeholder?: string;
+  readOnly?: boolean;
+  required?: boolean;
+  rows?: number;
+  value?: string | number;
+  wrap?: string;
+}>;
 
-interface ThHTMLAttributes<T extends EventTarget = HTMLTableCellElement> extends HTMLAttributes<T> {
-  align?: MaybeValue<Align | undefined>;
-  colspan?: MaybeValue<number | undefined>;
-  headers?: MaybeValue<string | undefined>;
-  rowspan?: MaybeValue<number | undefined>;
-  scope?: MaybeValue<string | undefined>;
-  abbr?: MaybeValue<string | undefined>;
-}
+type TableHeaderAttributes = GenericAttributes<HTMLTableCellElement> & WrapAttributes<{
+  align?: Align;
+  colspan?: number;
+  headers?: string;
+  rowspan?: number;
+  scope?: string;
+  abbr?: string;
+}>;
 
-interface TimeHTMLAttributes<T extends EventTarget = HTMLTimeElement> extends HTMLAttributes<T> {
-  datetime?: MaybeValue<string | undefined>;
-  dateTime?: MaybeValue<string | undefined>;
-}
+type TimeAttributes = GenericAttributes<HTMLTimeElement> & WrapAttributes<{
+  datetime?: string;
+}>;
 
-interface TrackHTMLAttributes<T extends EventTarget = HTMLTrackElement> extends MediaHTMLAttributes<T> {
-  default?: MaybeValue<boolean | undefined>;
-  kind?: MaybeValue<string | undefined>;
-  label?: MaybeValue<string | undefined>;
-  srclang?: MaybeValue<string | undefined>;
-  srcLang?: MaybeValue<string | undefined>;
-}
+type TrackAttributes = MediaHTMLAttributes<HTMLTrackElement> & WrapAttributes<{
+  default?: boolean;
+  kind?: string;
+  label?: string;
+  srclang?: string;
+}>;
 
-interface VideoHTMLAttributes<T extends EventTarget = HTMLVideoElement> extends MediaHTMLAttributes<T> {
-  height?: MaybeValue<number | string | undefined>;
-  poster?: MaybeValue<string | undefined>;
-  width?: MaybeValue<number | string | undefined>;
-  disablePictureInPicture?: MaybeValue<boolean | undefined>;
-  disableRemotePlayback?: MaybeValue<boolean | undefined>;
-}
+type VideoAttributes = MediaHTMLAttributes<HTMLVideoElement> & WrapAttributes<{
+  height?: number | string;
+  poster?: string;
+  width?: number | string;
+  disablePictureInPicture?: boolean;
+  disableRemotePlayback?: boolean;
+}>;
 
 export interface IntrinsicHTMLElements {
-  a: AnchorHTMLAttributes<HTMLAnchorElement>;
-  abbr: HTMLAttributes<HTMLElement>;
-  address: HTMLAttributes<HTMLElement>;
-  area: AreaHTMLAttributes<HTMLAreaElement>;
-  article: HTMLAttributes<HTMLElement>;
-  aside: HTMLAttributes<HTMLElement>;
-  audio: AudioHTMLAttributes<HTMLAudioElement>;
-  b: HTMLAttributes<HTMLElement>;
-  base: BaseHTMLAttributes<HTMLBaseElement>;
-  bdi: HTMLAttributes<HTMLElement>;
-  bdo: HTMLAttributes<HTMLElement>;
-  big: HTMLAttributes<HTMLElement>;
-  blockquote: BlockquoteHTMLAttributes<HTMLQuoteElement>;
-  body: HTMLAttributes<HTMLBodyElement>;
-  br: HTMLAttributes<HTMLBRElement>;
-  button: ButtonHTMLAttributes<HTMLButtonElement>;
-  canvas: CanvasHTMLAttributes<HTMLCanvasElement>;
-  caption: HTMLAttributes<HTMLTableCaptionElement>;
-  cite: HTMLAttributes<HTMLElement>;
-  code: HTMLAttributes<HTMLElement>;
-  col: ColHTMLAttributes<HTMLTableColElement>;
-  colgroup: ColgroupHTMLAttributes<HTMLTableColElement>;
-  data: DataHTMLAttributes<HTMLDataElement>;
-  datalist: HTMLAttributes<HTMLDataListElement>;
-  dd: HTMLAttributes<HTMLElement>;
-  del: DelHTMLAttributes<HTMLModElement>;
-  details: DetailsHTMLAttributes<HTMLDetailsElement>;
-  dfn: HTMLAttributes<HTMLElement>;
-  dialog: DialogHTMLAttributes<HTMLDialogElement>;
-  div: HTMLAttributes<HTMLDivElement>;
-  dl: HTMLAttributes<HTMLDListElement>;
-  dt: HTMLAttributes<HTMLElement>;
-  em: HTMLAttributes<HTMLElement>;
-  embed: EmbedHTMLAttributes<HTMLEmbedElement>;
-  fieldset: FieldsetHTMLAttributes<HTMLFieldSetElement>;
-  figcaption: HTMLAttributes<HTMLElement>;
-  figure: HTMLAttributes<HTMLElement>;
-  footer: HTMLAttributes<HTMLElement>;
-  form: FormHTMLAttributes<HTMLFormElement>;
-  h1: HTMLAttributes<HTMLHeadingElement>;
-  h2: HTMLAttributes<HTMLHeadingElement>;
-  h3: HTMLAttributes<HTMLHeadingElement>;
-  h4: HTMLAttributes<HTMLHeadingElement>;
-  h5: HTMLAttributes<HTMLHeadingElement>;
-  h6: HTMLAttributes<HTMLHeadingElement>;
-  head: HTMLAttributes<HTMLHeadElement>;
-  header: HTMLAttributes<HTMLElement>;
-  hgroup: HTMLAttributes<HTMLElement>;
-  hr: HTMLAttributes<HTMLHRElement>;
-  html: HTMLAttributes<HTMLHtmlElement>;
-  i: HTMLAttributes<HTMLElement>;
-  iframe: IframeHTMLAttributes<HTMLIFrameElement>;
-  img: ImgHTMLAttributes<HTMLImageElement>;
-  input: InputHTMLAttributes<HTMLInputElement>;
-  ins: InsHTMLAttributes<HTMLModElement>;
-  kbd: HTMLAttributes<HTMLElement>;
-  keygen: KeygenHTMLAttributes<HTMLUnknownElement>;
-  label: LabelHTMLAttributes<HTMLLabelElement>;
-  legend: HTMLAttributes<HTMLLegendElement>;
-  li: LiHTMLAttributes<HTMLLIElement>;
-  link: LinkHTMLAttributes<HTMLLinkElement>;
-  main: HTMLAttributes<HTMLElement>;
-  map: MapHTMLAttributes<HTMLMapElement>;
-  mark: HTMLAttributes<HTMLElement>;
-  marquee: MarqueeHTMLAttributes<HTMLMarqueeElement>;
-  menu: MenuHTMLAttributes<HTMLMenuElement>;
-  menuitem: HTMLAttributes<HTMLUnknownElement>;
-  meta: MetaHTMLAttributes<HTMLMetaElement>;
-  meter: MeterHTMLAttributes<HTMLMeterElement>;
-  nav: HTMLAttributes<HTMLElement>;
-  noscript: HTMLAttributes<HTMLElement>;
-  object: ObjectHTMLAttributes<HTMLObjectElement>;
-  ol: OlHTMLAttributes<HTMLOListElement>;
-  optgroup: OptgroupHTMLAttributes<HTMLOptGroupElement>;
-  option: OptionHTMLAttributes<HTMLOptionElement>;
-  output: OutputHTMLAttributes<HTMLOutputElement>;
-  p: HTMLAttributes<HTMLParagraphElement>;
-  param: ParamHTMLAttributes<HTMLParamElement>;
-  picture: HTMLAttributes<HTMLPictureElement>;
-  pre: HTMLAttributes<HTMLPreElement>;
-  progress: ProgressHTMLAttributes<HTMLProgressElement>;
-  q: QuoteHTMLAttributes<HTMLQuoteElement>;
-  rp: HTMLAttributes<HTMLElement>;
-  rt: HTMLAttributes<HTMLElement>;
-  ruby: HTMLAttributes<HTMLElement>;
-  s: HTMLAttributes<HTMLElement>;
-  samp: HTMLAttributes<HTMLElement>;
-  script: ScriptHTMLAttributes<HTMLScriptElement>;
-  search: HTMLAttributes<HTMLElement>;
-  section: HTMLAttributes<HTMLElement>;
-  select: SelectHTMLAttributes<HTMLSelectElement>;
-  slot: SlotHTMLAttributes<HTMLSlotElement>;
-  small: HTMLAttributes<HTMLElement>;
-  source: SourceHTMLAttributes<HTMLSourceElement>;
-  span: HTMLAttributes<HTMLSpanElement>;
-  strong: HTMLAttributes<HTMLElement>;
-  style: StyleHTMLAttributes<HTMLStyleElement>;
-  sub: HTMLAttributes<HTMLElement>;
-  summary: HTMLAttributes<HTMLElement>;
-  sup: HTMLAttributes<HTMLElement>;
-  table: TableHTMLAttributes<HTMLTableElement>;
-  tbody: HTMLAttributes<HTMLTableSectionElement>;
-  td: TdHTMLAttributes<HTMLTableCellElement>;
-  template: HTMLAttributes<HTMLTemplateElement>;
-  textarea: TextareaHTMLAttributes<HTMLTextAreaElement>;
-  tfoot: HTMLAttributes<HTMLTableSectionElement>;
-  th: ThHTMLAttributes<HTMLTableCellElement>;
-  thead: HTMLAttributes<HTMLTableSectionElement>;
-  time: TimeHTMLAttributes<HTMLTimeElement>;
-  title: HTMLAttributes<HTMLTitleElement>;
-  tr: HTMLAttributes<HTMLTableRowElement>;
-  track: TrackHTMLAttributes<HTMLTrackElement>;
-  u: HTMLAttributes<HTMLElement>;
-  ul: HTMLAttributes<HTMLUListElement>;
-  var: HTMLAttributes<HTMLElement>;
-  video: VideoHTMLAttributes<HTMLVideoElement>;
-  wbr: HTMLAttributes<HTMLElement>;
+  a: AnchorAttributes;
+  abbr: GenericAttributes<HTMLElement>;
+  address: GenericAttributes<HTMLElement>;
+  area: AreaAttributes;
+  article: GenericAttributes<HTMLElement>;
+  aside: GenericAttributes<HTMLElement>;
+  audio: MediaHTMLAttributes<HTMLAudioElement>;
+  b: GenericAttributes<HTMLElement>;
+  base: BaseAttributes;
+  bdi: GenericAttributes<HTMLElement>;
+  bdo: GenericAttributes<HTMLElement>;
+  big: GenericAttributes<HTMLElement>;
+  blockquote: BlockquoteAttributes;
+  body: GenericAttributes<HTMLBodyElement>;
+  br: GenericAttributes<HTMLBRElement>;
+  button: ButtonAttributes;
+  canvas: CanvasAttributes;
+  caption: GenericAttributes<HTMLTableCaptionElement>;
+  cite: GenericAttributes<HTMLElement>;
+  code: GenericAttributes<HTMLElement>;
+  col: ColumnAttributes;
+  colgroup: ColumnGroupAttributes;
+  data: DataAttributes;
+  datalist: GenericAttributes<HTMLDataListElement>;
+  dd: GenericAttributes<HTMLElement>;
+  del: DeletedTextAttributes;
+  details: DetailsAttributes;
+  dfn: GenericAttributes<HTMLElement>;
+  dialog: DialogAttributes;
+  div: GenericAttributes<HTMLDivElement>;
+  dl: GenericAttributes<HTMLDListElement>;
+  dt: GenericAttributes<HTMLElement>;
+  em: GenericAttributes<HTMLElement>;
+  embed: EmbedAttributes;
+  fieldset: FieldsetAttributes;
+  figcaption: GenericAttributes<HTMLElement>;
+  figure: GenericAttributes<HTMLElement>;
+  footer: GenericAttributes<HTMLElement>;
+  form: FormAttributes;
+  h1: GenericAttributes<HTMLHeadingElement>;
+  h2: GenericAttributes<HTMLHeadingElement>;
+  h3: GenericAttributes<HTMLHeadingElement>;
+  h4: GenericAttributes<HTMLHeadingElement>;
+  h5: GenericAttributes<HTMLHeadingElement>;
+  h6: GenericAttributes<HTMLHeadingElement>;
+  head: GenericAttributes<HTMLHeadElement>;
+  header: GenericAttributes<HTMLElement>;
+  hgroup: GenericAttributes<HTMLElement>;
+  hr: GenericAttributes<HTMLHRElement>;
+  html: GenericAttributes<HTMLHtmlElement>;
+  i: GenericAttributes<HTMLElement>;
+  iframe: IframeAttributes;
+  img: ImageAttributes;
+  input: InputAttributes;
+  ins: InsertedTextAttributes;
+  kbd: GenericAttributes<HTMLElement>;
+  keygen: KeygenAttributes;
+  label: LabelAttributes;
+  legend: GenericAttributes<HTMLLegendElement>;
+  li: ListItemAttributes;
+  link: LinkAttributes;
+  main: GenericAttributes<HTMLElement>;
+  map: MapAttributes;
+  mark: GenericAttributes<HTMLElement>;
+  /** @deprecated See: https://developer.mozilla.org/docs/Web/API/HTMLMarqueeElement */
+  marquee: MarqueeAttributes;
+  menu: MenuAttributes;
+  menuitem: GenericAttributes<HTMLUnknownElement>;
+  meta: MetaAttributes;
+  meter: MeterAttributes;
+  nav: GenericAttributes<HTMLElement>;
+  noscript: GenericAttributes<HTMLElement>;
+  object: ObjectAttributes;
+  ol: OrderedListAttributes;
+  optgroup: OptionGroupAttributes;
+  option: OptionAttributes;
+  output: OutputAttributes;
+  p: GenericAttributes<HTMLParagraphElement>;
+  /** @deprecated See: https://developer.mozilla.org/docs/Web/API/HTMLParamElement */
+  param: ParamAttributes;
+  picture: GenericAttributes<HTMLPictureElement>;
+  pre: GenericAttributes<HTMLPreElement>;
+  progress: ProgressAttributes;
+  q: QuoteAttributes;
+  rp: GenericAttributes<HTMLElement>;
+  rt: GenericAttributes<HTMLElement>;
+  ruby: GenericAttributes<HTMLElement>;
+  s: GenericAttributes<HTMLElement>;
+  samp: GenericAttributes<HTMLElement>;
+  script: ScriptAttributes;
+  search: GenericAttributes<HTMLElement>;
+  section: GenericAttributes<HTMLElement>;
+  select: SelectAttributes;
+  slot: SlotAttributes;
+  small: GenericAttributes<HTMLElement>;
+  source: SourceAttributes;
+  span: GenericAttributes<HTMLSpanElement>;
+  strong: GenericAttributes<HTMLElement>;
+  style: StyleAttributes;
+  sub: GenericAttributes<HTMLElement>;
+  summary: GenericAttributes<HTMLElement>;
+  sup: GenericAttributes<HTMLElement>;
+  table: TableAttributes;
+  tbody: GenericAttributes<HTMLTableSectionElement>;
+  td: TableDataAttributes;
+  template: GenericAttributes<HTMLTemplateElement>;
+  textarea: TextareaAttributes;
+  tfoot: GenericAttributes<HTMLTableSectionElement>;
+  th: TableHeaderAttributes;
+  thead: GenericAttributes<HTMLTableSectionElement>;
+  time: TimeAttributes;
+  title: GenericAttributes<HTMLTitleElement>;
+  tr: GenericAttributes<HTMLTableRowElement>;
+  track: TrackAttributes;
+  u: GenericAttributes<HTMLElement>;
+  ul: GenericAttributes<HTMLUListElement>;
+  var: GenericAttributes<HTMLElement>;
+  video: VideoAttributes;
+  wbr: GenericAttributes<HTMLElement>;
 }

@@ -1,10 +1,11 @@
 import { InputValue, Value } from './value';
 import { IntrinsicMathMLElements } from './mathML';
 import { SVGAttributes, IntrinsicSVGElements } from './svg';
-import { HTMLAttributes, IntrinsicHTMLElements } from './html';
+import { GenericAttributes, IntrinsicHTMLElements } from './html';
 
 export type Primitive = string | number | bigint | boolean | null | undefined;
 
+/** Interface for an ElementNode; a component processed with createElementNode */
 export interface ElementNode<Props = {}> {
   type: Component<Props> | string;
   props: Props & { children: ComponentChild[] };
@@ -14,8 +15,10 @@ export type ComponentChild = ElementNode<any> | Value<any> | Primitive;
 export type ComponentChildren = ComponentChild[] | ComponentChild;
 export type ChildrenNodeProps = { children?: ComponentChildren };
 export type CreateState = <Type>(value: Type) => InputValue<Type>;
-export type HTMLNodeProps = HTMLAttributes & SVGAttributes & Omit<Record<string, any>, 'children'>;
+// TODO: Fix this
+export type HTMLNodeProps = GenericAttributes<EventTarget> & SVGAttributes & Omit<Record<string, any>, 'children'>;
 
+/** Interface for a Component function */
 export interface Component<Props = {}> {
   (props: Props & ChildrenNodeProps, createState: CreateState): ComponentChild;
 }
