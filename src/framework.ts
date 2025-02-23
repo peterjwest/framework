@@ -1,6 +1,6 @@
 import { isPrimitive, childrenToArray, primitiveToString } from './util';
-import { Component, ElementNode, HTMLNodeProps, ComponentChild, ChildrenNodeProps } from './jsx';
-import { Value, InputValue, DerivedValue, IsEqual, ProxyValue, DeriveValueListener } from './value';
+import { Component, ElementNode, ComponentChild, ChildrenNodeProps } from './jsx';
+import { Value, InputValue, DerivedValue, IsEqual, ProxyValue, DeriveValueListener, ExtractValue } from './value';
 
 import diffList, { ACTIONS } from './diffList';
 
@@ -12,27 +12,12 @@ export function createState<Type>(value: Type) {
   return new InputValue<Type>(value);
 }
 
-export function createElementNode(
-  type: string,
-  maybeProps: (HTMLNodeProps & ChildrenNodeProps) | null,
-): ElementNode<HTMLNodeProps & ChildrenNodeProps>;
-
-export function createElementNode<Props>(
-  type: Component<Props>,
-  maybeProps: (Props & ChildrenNodeProps) | null,
-): ElementNode<Props & ChildrenNodeProps>;
-
 // TODO: Support "key" in props
-export function createElementNode<Props>(
+export function createElementNode<Props extends ChildrenNodeProps>(
   type: string | Component<Props>,
-  maybeProps: (HTMLNodeProps & ChildrenNodeProps) | (Props & ChildrenNodeProps) | null,
-): ElementNode<HTMLNodeProps> | ElementNode<Props> {
-  if (typeof type === 'string') {
-    const props = (maybeProps ? maybeProps : {}) as HTMLNodeProps & ChildrenNodeProps;
-    return { type, props: { ...props, children: childrenToArray(props.children) } };
-  }
-
-  const props = (maybeProps ? maybeProps : {}) as Props & ChildrenNodeProps;
+  maybeProps: Props | null,
+): ElementNode<Props> {
+  const props = (maybeProps ? maybeProps : {}) as Props;
   return { type, props: { ...props, children: childrenToArray(props.children) } };
 }
 
@@ -109,6 +94,37 @@ type ListItemMetadata = {
   unrender: Unrender | undefined
 }
 
+/** Sets (or unsets) an attribute value */
+function setAttribute(element: HTMLElement, name: string, value: any) {
+  // Data attributes are set without modification
+  if (name.startsWith('data-')) {
+    element.setAttribute(name, value);
+    return;
+  }
+
+  if (typeof value === 'boolean') {
+    // Aria booleans are set with string values
+    if (name.startsWith('aria-')) {
+      element.setAttribute(name, value ? 'true' : 'false');
+      return;
+    }
+
+    // Conventional booleans are set with empty string or unset
+    if (value) {
+      element.setAttribute(name, '');
+    } else {
+      element.removeAttribute(name);
+    }
+    return;
+  }
+
+  if (value === undefined) {
+    element.removeAttribute(name)
+  } else {
+    element.setAttribute(name, value)
+  }
+}
+
 export function renderElement(
   element: ComponentChild,
   parentElement: HTMLElement,
@@ -152,12 +168,22 @@ export function renderElement(
 
   if (typeof element.type === 'string') {
     const elementNode = document.createElement(element.type);
+
+    const attrValueListeners: Array<[Value<any>, (value: any) => void]> = []
     for (const attr in element.props) {
-      if (attr !== 'children' && attr !== 'onChange' && attr !== 'onClick' ) {
-        elementNode.setAttribute(attr, element.props[attr])
+      if (attr === 'children' || attr == 'events') continue;
+      const value = element.props[attr];
+
+      if (value instanceof Value) {
+        const listener = (value: any) => setAttribute(elementNode, attr, value);
+        value.addUpdateListener(listener);
+        attrValueListeners.push([value, listener]);
       }
+      else setAttribute(elementNode, attr, value);
     }
 
+    // TODO: Look into virtual event https://github.com/preactjs/preact/blob/d7b47872734eafdd3fdc55eadd97898cf4232a86/src/diff/props.js#L140
+    // TODO: Support Value in events
     const events = element.props.events || {};
     for (const name in events) {
       elementNode.addEventListener(name, events[name]);
@@ -174,6 +200,9 @@ export function renderElement(
     const unrender = () => {
       for (const name in events) {
         elementNode.removeEventListener(name, events[name]);
+      }
+      for (const [value, listener] of attrValueListeners) {
+        value.removeUpdateListener(listener);
       }
       elementNode.remove()
     }

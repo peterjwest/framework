@@ -6,7 +6,7 @@ export interface IsEqual<Type> {
 }
 
 /** Extracts Type from Value<Type> */
-type ExtractValue<Type> = Type extends Value<infer X> ? X : never;
+export type ExtractValue<Type> = Type extends Value<infer X> ? X : never;
 
 /** Extracts each Type from a tuple of Value<Type> */
 type ExtractValues<Type extends Value<unknown>[]> = {
@@ -85,10 +85,10 @@ export abstract class Value<Type> {
    * Returns a new ComputedValue which updates after the original Value
    * has not changed for `time` milliseconds.
    */
-  debounce(time: number, leadingEdge = false) {
-    // TODO: setup timers to update computed value
-    return this;
-  }
+  // debounce(time: number, leadingEdge = false) {
+  //   // TODO: setup timers to update computed value
+  //   return this;
+  // }
 }
 
 export class InputValue<Type> extends Value<Type> {

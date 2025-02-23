@@ -62,9 +62,6 @@ export interface Props<Target extends EventTarget> {
   events?: EventProp<Target>;
 }
 
-// TODO: Compute from internal types
-// TODO: WrapAttributes
-
 /** Attributes common to all HTML elements */
 type GenericAttributes<T extends EventTarget> = Props<T> & WrapAttributes<AriaAttributes & {
   // Standard HTML Attributes
@@ -73,12 +70,12 @@ type GenericAttributes<T extends EventTarget> = Props<T> & WrapAttributes<AriaAt
   autocorrect?: string;
   autofocus?: boolean;
   class?: string;
-  contenteditable?: boolean | '' | 'plaintext-only' | 'inherit';
+  contenteditable?: boolean | 'plaintext-only';
   dir?: 'auto' | 'rtl' | 'ltr';
   draggable?: boolean;
   enterkeyhint?: EnterKeyHint;
   exportparts?: string;
-  hidden?: boolean | 'hidden' | 'until-found';
+  hidden?: boolean | 'until-found';
   id?: string;
   inert?: boolean;
   inputmode?: string;
@@ -86,7 +83,7 @@ type GenericAttributes<T extends EventTarget> = Props<T> & WrapAttributes<AriaAt
   lang?: string;
   nonce?: string;
   part?: string;
-  popover?: 'auto' | 'hint' | 'manual' | boolean;
+  popover?: 'auto' | 'hint' | 'manual';
   slot?: string;
   spellcheck?: boolean;
   style?: string | CSSProperties;

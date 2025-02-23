@@ -27,10 +27,11 @@ export function Component({}, createState: CreateState) {
   const fullName = createState('J W');
   const search = createState('hi');
   const count = createState(2);
+  // TODO: Async
   // const results = search.debounce(100).computed(
   //   async (search, abortSignal) => fetch(`/search?query=${search}`, { signal: abortSignal }),
   // );
-  const results = Value.computed([search.debounce(100), count], (search, count) =>
+  const results = Value.computed([search, count], (search, count) =>
     ({ success: true, data: Array(Math.max(0, count)).fill(undefined).map((_, index) => ({ id: index, name: search })) })
   );
 
@@ -61,7 +62,7 @@ export function Component({}, createState: CreateState) {
             if={count}
             then={() => (
               <>
-                <div>
+                <div data-count={resultsLength}>
                   Found {resultsLength} results for {search}
                   <pre>Ratio: {ratio}</pre>
                 </div>

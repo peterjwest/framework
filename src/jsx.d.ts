@@ -15,8 +15,6 @@ export type ComponentChild = ElementNode<any> | Value<any> | Primitive;
 export type ComponentChildren = ComponentChild[] | ComponentChild;
 export type ChildrenNodeProps = { children?: ComponentChildren };
 export type CreateState = <Type>(value: Type) => InputValue<Type>;
-// TODO: Fix this
-export type HTMLNodeProps = GenericAttributes<EventTarget> & SVGAttributes & Omit<Record<string, any>, 'children'>;
 
 /** Interface for a Component function */
 export interface Component<Props = {}> {
