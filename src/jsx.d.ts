@@ -1,7 +1,7 @@
 import { InputValue, Value } from './value';
 import { IntrinsicMathMLElements } from './mathML';
-import { SVGAttributes, IntrinsicSVGElements } from './svg';
-import { GenericAttributes, IntrinsicHTMLElements } from './html';
+import { IntrinsicSVGElements } from './svg';
+import { IntrinsicHTMLElements } from './html';
 
 export type Primitive = string | number | bigint | boolean | null | undefined;
 

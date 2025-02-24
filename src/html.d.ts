@@ -57,13 +57,14 @@ type DOMCSSProperties = ReplaceValues<Partial<OmitMethods<CSSStyleDeclaration>>,
 type AllCSSProperties = { [key: string]: string | number | null };
 type CSSProperties = AllCSSProperties & DOMCSSProperties & { cssText?: string | null };
 
-export interface Props<Target extends EventTarget> {
-  children?: ComponentChildren;
-  events?: EventProp<Target>;
-}
+type Expand<T> = T extends infer O ? { [K in keyof O]: O[K] } : never;
+
+type ExpandRecursively<T> = T extends object
+  ? T extends infer O ? { [K in keyof O]: ExpandRecursively<O[K]> } : never
+  : T;
 
 /** Attributes common to all HTML elements */
-type GenericAttributes<T extends EventTarget> = Props<T> & WrapAttributes<AriaAttributes & {
+type GenericAttributes = WrapAttributes<AriaAttributes & {
   // Standard HTML Attributes
   accesskey?: string;
   autocapitalize?: AutoCapitalize;
@@ -117,8 +118,13 @@ type GenericAttributes<T extends EventTarget> = Props<T> & WrapAttributes<AriaAt
   itemtype?: string;
 }>;
 
+/** Attributes and props common to all HTML elements */
+type GenericProps<Target extends EventTarget> = GenericAttributes & {
+  children?: ComponentChildren;
+  events?: EventProp<Target>;
+};
 
-type AnchorAttributes = GenericAttributes<HTMLAnchorElement> & WrapAttributes<{
+type AnchorAttributes = GenericProps<HTMLAnchorElement> & WrapAttributes<{
   download?: any;
   href?: string;
   hreflang?: string;
@@ -130,7 +136,7 @@ type AnchorAttributes = GenericAttributes<HTMLAnchorElement> & WrapAttributes<{
   referrerpolicy?: ReferrerPolicy;
 }>;
 
-type AreaAttributes = GenericAttributes<HTMLAreaElement> & WrapAttributes<{
+type AreaAttributes = GenericProps<HTMLAreaElement> & WrapAttributes<{
   alt?: string;
   coords?: string;
   download?: any;
@@ -143,16 +149,16 @@ type AreaAttributes = GenericAttributes<HTMLAreaElement> & WrapAttributes<{
   target?: string;
 }>;
 
-type BaseAttributes = GenericAttributes<HTMLBaseElement> & WrapAttributes<{
+type BaseAttributes = GenericProps<HTMLBaseElement> & WrapAttributes<{
   href?: string;
   target?: string;
 }>;
 
-type BlockquoteAttributes = GenericAttributes<HTMLQuoteElement> & WrapAttributes<{
+type BlockquoteAttributes = GenericProps<HTMLQuoteElement> & WrapAttributes<{
   cite?: string;
 }>;
 
-type ButtonAttributes = GenericAttributes<HTMLButtonElement> & WrapAttributes<{
+type ButtonAttributes = GenericProps<HTMLButtonElement> & WrapAttributes<{
   disabled?: boolean;
   form?: string;
   formaction?: string;
@@ -167,51 +173,51 @@ type ButtonAttributes = GenericAttributes<HTMLButtonElement> & WrapAttributes<{
   value?: string | number;
 }>;
 
-type CanvasAttributes = GenericAttributes<HTMLCanvasElement> & WrapAttributes<{
+type CanvasAttributes = GenericProps<HTMLCanvasElement> & WrapAttributes<{
   height?: number | string;
   width?: number | string;
 }>;
 
-type ColumnAttributes = GenericAttributes<HTMLTableColElement> & WrapAttributes<{
+type ColumnAttributes = GenericProps<HTMLTableColElement> & WrapAttributes<{
   span?: number;
   width?: number | string;
 }>;
 
-type ColumnGroupAttributes = GenericAttributes<HTMLTableColElement> & WrapAttributes<{
+type ColumnGroupAttributes = GenericProps<HTMLTableColElement> & WrapAttributes<{
   span?: number;
 }>;
 
-type DataAttributes = GenericAttributes<HTMLDataElement> & WrapAttributes<{
+type DataAttributes = GenericProps<HTMLDataElement> & WrapAttributes<{
   value?: string | number;
 }>;
 
-type DeletedTextAttributes = GenericAttributes<HTMLModElement> & WrapAttributes<{
+type DeletedTextAttributes = GenericProps<HTMLModElement> & WrapAttributes<{
   cite?: string;
   datetime?: string;
 }>;
 
-type DetailsAttributes = GenericAttributes<HTMLDetailsElement> & WrapAttributes<{
+type DetailsAttributes = GenericProps<HTMLDetailsElement> & WrapAttributes<{
   open?: boolean;
 }>;
 
-type DialogAttributes = GenericAttributes<HTMLDialogElement> & WrapAttributes<{
+type DialogAttributes = GenericProps<HTMLDialogElement> & WrapAttributes<{
   open?: boolean;
 }>;
 
-type EmbedAttributes = GenericAttributes<HTMLEmbedElement> & WrapAttributes<{
+type EmbedAttributes = GenericProps<HTMLEmbedElement> & WrapAttributes<{
   height?: number | string;
   src?: string;
   type?: string;
   width?: number | string;
 }>;
 
-type FieldsetAttributes = GenericAttributes<HTMLFieldSetElement> & WrapAttributes<{
+type FieldsetAttributes = GenericProps<HTMLFieldSetElement> & WrapAttributes<{
   disabled?: boolean;
   form?: string;
   name?: string;
 }>;
 
-type FormAttributes = GenericAttributes<HTMLFormElement> & WrapAttributes<{
+type FormAttributes = GenericProps<HTMLFormElement> & WrapAttributes<{
   'accept-charset'?: string;
   action?: string;
   autocomplete?: string;
@@ -223,7 +229,7 @@ type FormAttributes = GenericAttributes<HTMLFormElement> & WrapAttributes<{
   target?: string;
 }>;
 
-type IframeAttributes = GenericAttributes<HTMLIFrameElement> & WrapAttributes<{
+type IframeAttributes = GenericProps<HTMLIFrameElement> & WrapAttributes<{
   allow?: string;
   allowFullScreen?: boolean;
   allowTransparency?: boolean;
@@ -246,7 +252,7 @@ type IframeAttributes = GenericAttributes<HTMLIFrameElement> & WrapAttributes<{
   width?: number | string;
 }>;
 
-type ImageAttributes = GenericAttributes<HTMLImageElement> & WrapAttributes<{
+type ImageAttributes = GenericProps<HTMLImageElement> & WrapAttributes<{
   alt?: string;
   crossorigin?: CrossOrigin;
   decoding?: 'async' | 'auto' | 'sync';
@@ -260,7 +266,7 @@ type ImageAttributes = GenericAttributes<HTMLImageElement> & WrapAttributes<{
   width?: number | string;
 }>;
 
-type InputAttributes = GenericAttributes<HTMLInputElement> & WrapAttributes<{
+type InputAttributes = GenericProps<HTMLInputElement> & WrapAttributes<{
   accept?: string;
   alt?: string;
   autocomplete?: string;
@@ -292,17 +298,17 @@ type InputAttributes = GenericAttributes<HTMLInputElement> & WrapAttributes<{
   size?: number;
   src?: string;
   step?: number | string;
-  type?: InputType;
+  type: InputType;
   value?: string | number;
   width?: number | string;
 }>;
 
-type InsertedTextAttributes = GenericAttributes<HTMLModElement> & WrapAttributes<{
+type InsertedTextAttributes = GenericProps<HTMLModElement> & WrapAttributes<{
   cite?: string;
   datetime?: string;
 }>;
 
-type KeygenAttributes = GenericAttributes<HTMLUnknownElement> & WrapAttributes<{
+type KeygenAttributes = GenericProps<HTMLUnknownElement> & WrapAttributes<{
   challenge?: string;
   disabled?: boolean;
   form?: string;
@@ -311,17 +317,17 @@ type KeygenAttributes = GenericAttributes<HTMLUnknownElement> & WrapAttributes<{
   name?: string;
 }>;
 
-type LabelAttributes = GenericAttributes<HTMLLabelElement> & WrapAttributes<{
+type LabelAttributes = GenericProps<HTMLLabelElement> & WrapAttributes<{
   for?: string;
   form?: string;
   htmlFor?: string;
 }>;
 
-type ListItemAttributes = GenericAttributes<HTMLLIElement> & WrapAttributes<{
+type ListItemAttributes = GenericProps<HTMLLIElement> & WrapAttributes<{
   value?: string | number;
 }>;
 
-type LinkAttributes = GenericAttributes<HTMLLinkElement> & WrapAttributes<{
+type LinkAttributes = GenericProps<HTMLLinkElement> & WrapAttributes<{
   as?: string;
   crossorigin?: CrossOrigin;
   fetchPriority?: 'high' | 'low' | 'auto';
@@ -337,11 +343,11 @@ type LinkAttributes = GenericAttributes<HTMLLinkElement> & WrapAttributes<{
   charset?: string;
 }>;
 
-type MapAttributes = GenericAttributes<HTMLMapElement> & WrapAttributes<{
+type MapAttributes = GenericProps<HTMLMapElement> & WrapAttributes<{
   name?: string;
 }>;
 
-type MarqueeAttributes = GenericAttributes<HTMLMarqueeElement> & WrapAttributes<{
+type MarqueeAttributes = GenericProps<HTMLMarqueeElement> & WrapAttributes<{
   behavior?: 'scroll' | 'slide' | 'alternate';
   bgColor?: string;
   direction?: 'left' | 'right' | 'up' | 'down';
@@ -355,7 +361,7 @@ type MarqueeAttributes = GenericAttributes<HTMLMarqueeElement> & WrapAttributes<
   width?: number | string;
 }>;
 
-type MediaHTMLAttributes<T extends EventTarget> = GenericAttributes<T> & WrapAttributes<{
+type MediaHTMLAttributes<T extends EventTarget> = GenericProps<T> & WrapAttributes<{
   autoplay?: boolean;
   controls?: boolean;
   controlsList?: string;
@@ -369,11 +375,11 @@ type MediaHTMLAttributes<T extends EventTarget> = GenericAttributes<T> & WrapAtt
   volume?: string | number;
 }>;
 
-type MenuAttributes = GenericAttributes<HTMLMenuElement> & WrapAttributes<{
+type MenuAttributes = GenericProps<HTMLMenuElement> & WrapAttributes<{
   type?: string;
 }>;
 
-type MetaAttributes = GenericAttributes<HTMLMetaElement> & WrapAttributes<{
+type MetaAttributes = GenericProps<HTMLMetaElement> & WrapAttributes<{
   charset?: string;
   content?: string;
   'http-equiv'?: string;
@@ -381,7 +387,7 @@ type MetaAttributes = GenericAttributes<HTMLMetaElement> & WrapAttributes<{
   media?: string;
 }>;
 
-type MeterAttributes = GenericAttributes<HTMLMeterElement> & WrapAttributes<{
+type MeterAttributes = GenericProps<HTMLMeterElement> & WrapAttributes<{
   form?: string;
   high?: number;
   low?: number;
@@ -391,7 +397,7 @@ type MeterAttributes = GenericAttributes<HTMLMeterElement> & WrapAttributes<{
   value?: string | number;
 }>;
 
-type ObjectAttributes = GenericAttributes<HTMLObjectElement> & WrapAttributes<{
+type ObjectAttributes = GenericProps<HTMLObjectElement> & WrapAttributes<{
   classID?: string;
   data?: string;
   form?: string;
@@ -403,46 +409,46 @@ type ObjectAttributes = GenericAttributes<HTMLObjectElement> & WrapAttributes<{
   wmode?: string;
 }>;
 
-type OrderedListAttributes = GenericAttributes<HTMLOListElement> & WrapAttributes<{
+type OrderedListAttributes = GenericProps<HTMLOListElement> & WrapAttributes<{
   reversed?: boolean;
   start?: number;
   type?: '1' | 'a' | 'A' | 'i' | 'I';
 }>;
 
-type OptionGroupAttributes = GenericAttributes<HTMLOptGroupElement> & WrapAttributes<{
+type OptionGroupAttributes = GenericProps<HTMLOptGroupElement> & WrapAttributes<{
   disabled?: boolean;
   label?: string;
 }>;
 
-type OptionAttributes = GenericAttributes<HTMLOptionElement> & WrapAttributes<{
+type OptionAttributes = GenericProps<HTMLOptionElement> & WrapAttributes<{
   disabled?: boolean;
   label?: string;
   selected?: boolean;
   value?: string | number;
 }>;
 
-type OutputAttributes = GenericAttributes<HTMLOutputElement> & WrapAttributes<{
+type OutputAttributes = GenericProps<HTMLOutputElement> & WrapAttributes<{
   for?: string;
   form?: string;
   htmlFor?: string;
   name?: string;
 }>;
 
-type ParamAttributes = GenericAttributes<HTMLParamElement> & WrapAttributes<{
+type ParamAttributes = GenericProps<HTMLParamElement> & WrapAttributes<{
   name?: string;
   value?: string | number;
 }>;
 
-type ProgressAttributes = GenericAttributes<HTMLProgressElement> & WrapAttributes<{
+type ProgressAttributes = GenericProps<HTMLProgressElement> & WrapAttributes<{
   max?: number | string;
   value?: string | number;
 }>;
 
-type QuoteAttributes = GenericAttributes<HTMLQuoteElement> & WrapAttributes<{
+type QuoteAttributes = GenericProps<HTMLQuoteElement> & WrapAttributes<{
   cite?: string;
 }>;
 
-type ScriptAttributes = GenericAttributes<HTMLScriptElement> & WrapAttributes<{
+type ScriptAttributes = GenericProps<HTMLScriptElement> & WrapAttributes<{
   async?: boolean;
   /** @deprecated See: https://developer.mozilla.org/en-US/docs/Web/HTML/Element/script#charset */
   charset?: string;
@@ -457,7 +463,7 @@ type ScriptAttributes = GenericAttributes<HTMLScriptElement> & WrapAttributes<{
   type?: string;
 }>;
 
-type SelectAttributes = GenericAttributes<HTMLSelectElement> & WrapAttributes<{
+type SelectAttributes = GenericProps<HTMLSelectElement> & WrapAttributes<{
   autocomplete?: string;
   defaultValue?: string | number;
   disabled?: boolean;
@@ -469,11 +475,11 @@ type SelectAttributes = GenericAttributes<HTMLSelectElement> & WrapAttributes<{
   value?: string | number;
 }>;
 
-type SlotAttributes = GenericAttributes<HTMLSlotElement> & WrapAttributes<{
+type SlotAttributes = GenericProps<HTMLSlotElement> & WrapAttributes<{
   name?: string;
 }>;
 
-type SourceAttributes = GenericAttributes<HTMLSourceElement> & WrapAttributes<{
+type SourceAttributes = GenericProps<HTMLSourceElement> & WrapAttributes<{
   height?: number | string;
   media?: string;
   sizes?: string;
@@ -483,20 +489,20 @@ type SourceAttributes = GenericAttributes<HTMLSourceElement> & WrapAttributes<{
   width?: number | string;
 }>;
 
-type StyleAttributes = GenericAttributes<HTMLStyleElement> & WrapAttributes<{
+type StyleAttributes = GenericProps<HTMLStyleElement> & WrapAttributes<{
   media?: string;
   scoped?: boolean;
   type?: string;
 }>;
 
-type TableAttributes = GenericAttributes<HTMLTableElement> & WrapAttributes<{
+type TableAttributes = GenericProps<HTMLTableElement> & WrapAttributes<{
   cellPadding?: string;
   cellSpacing?: string;
   summary?: string;
   width?: number | string;
 }>;
 
-type TableDataAttributes = GenericAttributes<HTMLTableCellElement> & WrapAttributes<{
+type TableDataAttributes = GenericProps<HTMLTableCellElement> & WrapAttributes<{
   align?: Align;
   colspan?: number;
   headers?: string;
@@ -508,7 +514,7 @@ type TableDataAttributes = GenericAttributes<HTMLTableCellElement> & WrapAttribu
   valign?: VerticalAlign;
 }>;
 
-type TextareaAttributes = GenericAttributes<HTMLTextAreaElement> & WrapAttributes<{
+type TextareaAttributes = GenericProps<HTMLTextAreaElement> & WrapAttributes<{
   autocomplete?: string;
   cols?: number;
   defaultValue?: string;
@@ -526,7 +532,7 @@ type TextareaAttributes = GenericAttributes<HTMLTextAreaElement> & WrapAttribute
   wrap?: string;
 }>;
 
-type TableHeaderAttributes = GenericAttributes<HTMLTableCellElement> & WrapAttributes<{
+type TableHeaderAttributes = GenericProps<HTMLTableCellElement> & WrapAttributes<{
   align?: Align;
   colspan?: number;
   headers?: string;
@@ -535,7 +541,7 @@ type TableHeaderAttributes = GenericAttributes<HTMLTableCellElement> & WrapAttri
   abbr?: string;
 }>;
 
-type TimeAttributes = GenericAttributes<HTMLTimeElement> & WrapAttributes<{
+type TimeAttributes = GenericProps<HTMLTimeElement> & WrapAttributes<{
   datetime?: string;
 }>;
 
@@ -556,122 +562,122 @@ type VideoAttributes = MediaHTMLAttributes<HTMLVideoElement> & WrapAttributes<{
 
 export interface IntrinsicHTMLElements {
   a: AnchorAttributes;
-  abbr: GenericAttributes<HTMLElement>;
-  address: GenericAttributes<HTMLElement>;
+  abbr: GenericProps<HTMLElement>;
+  address: GenericProps<HTMLElement>;
   area: AreaAttributes;
-  article: GenericAttributes<HTMLElement>;
-  aside: GenericAttributes<HTMLElement>;
+  article: GenericProps<HTMLElement>;
+  aside: GenericProps<HTMLElement>;
   audio: MediaHTMLAttributes<HTMLAudioElement>;
-  b: GenericAttributes<HTMLElement>;
+  b: GenericProps<HTMLElement>;
   base: BaseAttributes;
-  bdi: GenericAttributes<HTMLElement>;
-  bdo: GenericAttributes<HTMLElement>;
-  big: GenericAttributes<HTMLElement>;
+  bdi: GenericProps<HTMLElement>;
+  bdo: GenericProps<HTMLElement>;
+  big: GenericProps<HTMLElement>;
   blockquote: BlockquoteAttributes;
-  body: GenericAttributes<HTMLBodyElement>;
-  br: GenericAttributes<HTMLBRElement>;
+  body: GenericProps<HTMLBodyElement>;
+  br: GenericProps<HTMLBRElement>;
   button: ButtonAttributes;
   canvas: CanvasAttributes;
-  caption: GenericAttributes<HTMLTableCaptionElement>;
-  cite: GenericAttributes<HTMLElement>;
-  code: GenericAttributes<HTMLElement>;
+  caption: GenericProps<HTMLTableCaptionElement>;
+  cite: GenericProps<HTMLElement>;
+  code: GenericProps<HTMLElement>;
   col: ColumnAttributes;
   colgroup: ColumnGroupAttributes;
   data: DataAttributes;
-  datalist: GenericAttributes<HTMLDataListElement>;
-  dd: GenericAttributes<HTMLElement>;
+  datalist: GenericProps<HTMLDataListElement>;
+  dd: GenericProps<HTMLElement>;
   del: DeletedTextAttributes;
   details: DetailsAttributes;
-  dfn: GenericAttributes<HTMLElement>;
+  dfn: GenericProps<HTMLElement>;
   dialog: DialogAttributes;
-  div: GenericAttributes<HTMLDivElement>;
-  dl: GenericAttributes<HTMLDListElement>;
-  dt: GenericAttributes<HTMLElement>;
-  em: GenericAttributes<HTMLElement>;
+  div: GenericProps<HTMLDivElement>;
+  dl: GenericProps<HTMLDListElement>;
+  dt: GenericProps<HTMLElement>;
+  em: GenericProps<HTMLElement>;
   embed: EmbedAttributes;
   fieldset: FieldsetAttributes;
-  figcaption: GenericAttributes<HTMLElement>;
-  figure: GenericAttributes<HTMLElement>;
-  footer: GenericAttributes<HTMLElement>;
+  figcaption: GenericProps<HTMLElement>;
+  figure: GenericProps<HTMLElement>;
+  footer: GenericProps<HTMLElement>;
   form: FormAttributes;
-  h1: GenericAttributes<HTMLHeadingElement>;
-  h2: GenericAttributes<HTMLHeadingElement>;
-  h3: GenericAttributes<HTMLHeadingElement>;
-  h4: GenericAttributes<HTMLHeadingElement>;
-  h5: GenericAttributes<HTMLHeadingElement>;
-  h6: GenericAttributes<HTMLHeadingElement>;
-  head: GenericAttributes<HTMLHeadElement>;
-  header: GenericAttributes<HTMLElement>;
-  hgroup: GenericAttributes<HTMLElement>;
-  hr: GenericAttributes<HTMLHRElement>;
-  html: GenericAttributes<HTMLHtmlElement>;
-  i: GenericAttributes<HTMLElement>;
+  h1: GenericProps<HTMLHeadingElement>;
+  h2: GenericProps<HTMLHeadingElement>;
+  h3: GenericProps<HTMLHeadingElement>;
+  h4: GenericProps<HTMLHeadingElement>;
+  h5: GenericProps<HTMLHeadingElement>;
+  h6: GenericProps<HTMLHeadingElement>;
+  head: GenericProps<HTMLHeadElement>;
+  header: GenericProps<HTMLElement>;
+  hgroup: GenericProps<HTMLElement>;
+  hr: GenericProps<HTMLHRElement>;
+  html: GenericProps<HTMLHtmlElement>;
+  i: GenericProps<HTMLElement>;
   iframe: IframeAttributes;
   img: ImageAttributes;
   input: InputAttributes;
   ins: InsertedTextAttributes;
-  kbd: GenericAttributes<HTMLElement>;
+  kbd: GenericProps<HTMLElement>;
   keygen: KeygenAttributes;
   label: LabelAttributes;
-  legend: GenericAttributes<HTMLLegendElement>;
+  legend: GenericProps<HTMLLegendElement>;
   li: ListItemAttributes;
   link: LinkAttributes;
-  main: GenericAttributes<HTMLElement>;
+  main: GenericProps<HTMLElement>;
   map: MapAttributes;
-  mark: GenericAttributes<HTMLElement>;
+  mark: GenericProps<HTMLElement>;
   /** @deprecated See: https://developer.mozilla.org/docs/Web/API/HTMLMarqueeElement */
   marquee: MarqueeAttributes;
   menu: MenuAttributes;
-  menuitem: GenericAttributes<HTMLUnknownElement>;
+  menuitem: GenericProps<HTMLUnknownElement>;
   meta: MetaAttributes;
   meter: MeterAttributes;
-  nav: GenericAttributes<HTMLElement>;
-  noscript: GenericAttributes<HTMLElement>;
+  nav: GenericProps<HTMLElement>;
+  noscript: GenericProps<HTMLElement>;
   object: ObjectAttributes;
   ol: OrderedListAttributes;
   optgroup: OptionGroupAttributes;
   option: OptionAttributes;
   output: OutputAttributes;
-  p: GenericAttributes<HTMLParagraphElement>;
+  p: GenericProps<HTMLParagraphElement>;
   /** @deprecated See: https://developer.mozilla.org/docs/Web/API/HTMLParamElement */
   param: ParamAttributes;
-  picture: GenericAttributes<HTMLPictureElement>;
-  pre: GenericAttributes<HTMLPreElement>;
+  picture: GenericProps<HTMLPictureElement>;
+  pre: GenericProps<HTMLPreElement>;
   progress: ProgressAttributes;
   q: QuoteAttributes;
-  rp: GenericAttributes<HTMLElement>;
-  rt: GenericAttributes<HTMLElement>;
-  ruby: GenericAttributes<HTMLElement>;
-  s: GenericAttributes<HTMLElement>;
-  samp: GenericAttributes<HTMLElement>;
+  rp: GenericProps<HTMLElement>;
+  rt: GenericProps<HTMLElement>;
+  ruby: GenericProps<HTMLElement>;
+  s: GenericProps<HTMLElement>;
+  samp: GenericProps<HTMLElement>;
   script: ScriptAttributes;
-  search: GenericAttributes<HTMLElement>;
-  section: GenericAttributes<HTMLElement>;
+  search: GenericProps<HTMLElement>;
+  section: GenericProps<HTMLElement>;
   select: SelectAttributes;
   slot: SlotAttributes;
-  small: GenericAttributes<HTMLElement>;
+  small: GenericProps<HTMLElement>;
   source: SourceAttributes;
-  span: GenericAttributes<HTMLSpanElement>;
-  strong: GenericAttributes<HTMLElement>;
+  span: GenericProps<HTMLSpanElement>;
+  strong: GenericProps<HTMLElement>;
   style: StyleAttributes;
-  sub: GenericAttributes<HTMLElement>;
-  summary: GenericAttributes<HTMLElement>;
-  sup: GenericAttributes<HTMLElement>;
+  sub: GenericProps<HTMLElement>;
+  summary: GenericProps<HTMLElement>;
+  sup: GenericProps<HTMLElement>;
   table: TableAttributes;
-  tbody: GenericAttributes<HTMLTableSectionElement>;
+  tbody: GenericProps<HTMLTableSectionElement>;
   td: TableDataAttributes;
-  template: GenericAttributes<HTMLTemplateElement>;
+  template: GenericProps<HTMLTemplateElement>;
   textarea: TextareaAttributes;
-  tfoot: GenericAttributes<HTMLTableSectionElement>;
+  tfoot: GenericProps<HTMLTableSectionElement>;
   th: TableHeaderAttributes;
-  thead: GenericAttributes<HTMLTableSectionElement>;
+  thead: GenericProps<HTMLTableSectionElement>;
   time: TimeAttributes;
-  title: GenericAttributes<HTMLTitleElement>;
-  tr: GenericAttributes<HTMLTableRowElement>;
+  title: GenericProps<HTMLTitleElement>;
+  tr: GenericProps<HTMLTableRowElement>;
   track: TrackAttributes;
-  u: GenericAttributes<HTMLElement>;
-  ul: GenericAttributes<HTMLUListElement>;
-  var: GenericAttributes<HTMLElement>;
+  u: GenericProps<HTMLElement>;
+  ul: GenericProps<HTMLUListElement>;
+  var: GenericProps<HTMLElement>;
   video: VideoAttributes;
-  wbr: GenericAttributes<HTMLElement>;
+  wbr: GenericProps<HTMLElement>;
 }

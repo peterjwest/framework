@@ -1,9 +1,10 @@
 import { ComponentChildren, CreateState } from './jsx';
 import { Value, InputValue, DeriveValueListener } from './value';
 import { renderElement, Condition, List, StateWatcher } from './framework';
+import { TargetedEvent } from './util';
 
 function ErrorMessage({ message }: { message: Value<string> }) {
-  return <div>{message}</div>;
+  return <div>Error! {message}</div>;
 }
 
 function Section({ children }: { children: ComponentChildren }) {
@@ -27,6 +28,7 @@ export function Component({}, createState: CreateState) {
   const fullName = createState('J W');
   const search = createState('hi');
   const count = createState(2);
+
   // TODO: Async
   // const results = search.debounce(100).computed(
   //   async (search, abortSignal) => fetch(`/search?query=${search}`, { signal: abortSignal }),
@@ -44,15 +46,18 @@ export function Component({}, createState: CreateState) {
     <article>
       <Section><h1>Hello {firstName} how are you?</h1><a href="/foo">Link</a></Section>
       <>
-        <input class="search-box" value={search.extract()} events={{ input: (event) => {
-          search.update(event.currentTarget.value);
-        }, change: (event) => {
-          search.update(event.currentTarget.value);
-        }}}/>
-        <input type="number" class="search-box" value={count.extract()} events={{ input: (event) => {
-          count.update(Number(event.currentTarget.value));
-        }}}/>
-        <button formaction="x" formmethod="x">Hi</button>
+        <input type="text" class="search-box" value={search.extract()} events={{ input: search.bind('value') }}/>
+        <input type="number" class="search-box" value={count.extract()} events={{ input: count.bind('value', Number) }}/>
+        <form>
+          <select id="fruit" name="fruit">
+            <option value="apple">Apple</option>
+            <option value="banana">Banana</option>
+            <option value="cabbage">Cabbage</option>
+          </select>
+
+          <textarea style="display: block;" events={{ input: search.bind('value') }} />
+          <button formaction="/submit" formmethod="get">Submit</button>
+        </form>
       </>
       <NestedComponent query={search} />
       <Condition

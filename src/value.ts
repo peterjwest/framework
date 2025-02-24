@@ -1,4 +1,4 @@
-import { strictEquals } from './util';
+import { strictEquals, TargetedEvent } from './util';
 
 /** Function interface to check if two values are considered equal */
 export interface IsEqual<Type> {
@@ -114,6 +114,27 @@ export class InputValue<Type> extends Value<Type> {
     for (const listener of this.updateListeners) {
       listener(this.value);
     }
+  }
+
+  /**
+   * Returns a function which updates a Value based on a property of the currentTarget of an Event.
+   * A transform function must be passed if the types do not match
+   */
+  bind<Property extends keyof Element, TypedEvent extends Event, Element extends EventTarget & { [P in Property]: Type }>(
+    property: Property,
+  ): (event: TargetedEvent<Element, TypedEvent>) => void;
+  bind<Property extends keyof Element, TypedEvent extends Event, Element extends EventTarget>(
+    property: Property,
+    transform: (value: Element[Property]) => Type,
+  ): (event: TargetedEvent<Element, TypedEvent>) => void;
+  bind<Property extends keyof Element, TypedEvent extends Event, Element extends EventTarget | (EventTarget & { [P in Property]: Type })>(
+    property: Property,
+    transform?: (value: Element[Property]) => Type,
+  ): (event: TargetedEvent<Element, TypedEvent>) => void {
+    return (event: TargetedEvent<Element, TypedEvent>) => {
+      const value = event.currentTarget[property];
+      this.update(transform ? transform(value): (value as Type));
+    };
   }
 }
 

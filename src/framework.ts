@@ -183,7 +183,6 @@ export function renderElement(
     }
 
     // TODO: Look into virtual event https://github.com/preactjs/preact/blob/d7b47872734eafdd3fdc55eadd97898cf4232a86/src/diff/props.js#L140
-    // TODO: Support Value in events
     const events = element.props.events || {};
     for (const name in events) {
       elementNode.addEventListener(name, events[name]);
@@ -341,5 +340,3 @@ export function renderElement(
 
   return [unrender, nextChildIndex];
 }
-
-// TODO: Attributes vs. properties
