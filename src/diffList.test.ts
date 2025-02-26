@@ -120,6 +120,7 @@ describe('diffList', () => {
     ]);
   });
 
+  // TODO: Add test with object equality
   test('Removes some with missing keys', () => {
     const A = [{}, { id: 2 }, { id: 3 }, {}];
     const B = [{ id: 2}, {}];
@@ -151,6 +152,17 @@ describe('diffList', () => {
       [ACTIONS.remove, 2],
       [ACTIONS.replace, 0, 0],
       [ACTIONS.replace, 1, 1],
+    ]);
+  });
+
+  test('Reorders various items', () => {
+    const A = expandList([1, 2, 3, 4, 5]);
+    const B = expandList([5, 2, 1, 4, 3]);
+
+    assert.deepStrictEqual(diffList(A, B, 'id'), [
+      [ACTIONS.move, 4, 0],
+      [ACTIONS.move, 4, 3],
+      [ACTIONS.move, 1, 2],
     ]);
   });
 });
