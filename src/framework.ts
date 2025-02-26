@@ -1,6 +1,6 @@
 import { isPrimitive, childrenToArray, primitiveToString } from './util';
 import { Component, ElementNode, ComponentChild, ChildrenNodeProps } from './jsx';
-import { Value, InputValue, DerivedValue, IsEqual, ProxyValue, DeriveValueListener, ExtractValue } from './value';
+import { Value, InputValue, DerivedValue, StaticValue, IsEqual, ProxyValue, DeriveValueListener } from './value';
 
 import diffList, { ACTIONS } from './diffList';
 
@@ -12,13 +12,14 @@ export function createState<Type>(value: Type) {
   return new InputValue<Type>(value);
 }
 
-// TODO: Support "key" in props
 export function createElementNode<Props extends ChildrenNodeProps>(
   type: string | Component<Props>,
   maybeProps: Props | null,
+  key: any,
 ): ElementNode<Props> {
   const props = (maybeProps ? maybeProps : {}) as Props;
-  return { type, props: { ...props, children: childrenToArray(props.children) } };
+  const maybeKey = key === undefined ? {} : { key };
+  return { type, props: { ...props, ...maybeKey, children: childrenToArray(props.children) } };
 }
 
 interface ConditionProps {
@@ -94,43 +95,31 @@ type ListItemMetadata = {
   unrender: Unrender | undefined
 }
 
-/** Sets (or unsets) an attribute value */
-function setAttribute(element: HTMLElement, name: string, value: any) {
+/** Maps a property value before applying to the DOM */
+function mapProperty(name: string, value: any) {
   // Data attributes are set without modification
   if (name.startsWith('data-')) {
-    element.setAttribute(name, value);
-    return;
+    return value;
   }
 
   if (typeof value === 'boolean') {
     // Aria booleans are set with string values
     if (name.startsWith('aria-')) {
-      element.setAttribute(name, value ? 'true' : 'false');
-      return;
+      return value ? 'true' : 'false';
     }
 
     // Conventional booleans are set with empty string or unset
-    if (value) {
-      element.setAttribute(name, '');
-    } else {
-      element.removeAttribute(name);
-    }
-    return;
+    return value ? '' : undefined;
   }
 
-  if (value === undefined) {
-    element.removeAttribute(name)
-  } else {
-    element.setAttribute(name, value)
-  }
+  return value === undefined ? undefined : value;
 }
 
 export function renderElement(
   element: ComponentChild,
   parentElement: HTMLElement,
   stateWatcher = new StateWatcher(),
-  // TODO: Create StaticValue
-  childIndex: Value<number> = new InputValue(0),
+  childIndex: Value<number> = new StaticValue(0),
   derivedListener?: DeriveValueListener,
 ): [Unrender | undefined, Value<number>] {
 
@@ -169,26 +158,33 @@ export function renderElement(
   if (typeof element.type === 'string') {
     const elementNode = document.createElement(element.type);
 
-    const attrValueListeners: Array<[Value<any>, (value: any) => void]> = []
-    for (const attr in element.props) {
-      if (attr === 'children' || attr == 'events') continue;
-      const value = element.props[attr];
+    const propertyValueListeners: Array<[Value<any>, (value: any) => void]> = []
+    for (const property in element.props) {
+      if (property === 'children' || property == 'events') continue;
+      const value = element.props[property];
 
       if (value instanceof Value) {
-        const listener = (value: any) => setAttribute(elementNode, attr, value);
+        elementNode.setAttribute(property, value.extract());
+        const listener = (value: any) => {
+          (elementNode as any)[property] = mapProperty(property, value);
+        }
         value.addUpdateListener(listener);
-        attrValueListeners.push([value, listener]);
+        propertyValueListeners.push([value, listener]);
       }
-      else setAttribute(elementNode, attr, value);
+      else {
+        elementNode.setAttribute(property, value);
+        (elementNode as any)[property] = mapProperty(property, value);
+      }
     }
 
-    // TODO: Look into virtual event https://github.com/preactjs/preact/blob/d7b47872734eafdd3fdc55eadd97898cf4232a86/src/diff/props.js#L140
+    // TODO: Look into virtual event https://github.com/preactjs/preact/blob/d7b47872734eafdd3fdc55eadd97898cf4232a86/src/diff/props.js#L29
+    // Also: https://github.com/preactjs/preact/issues/3927
     const events = element.props.events || {};
     for (const name in events) {
       elementNode.addEventListener(name, events[name]);
     }
 
-    let nextChildIndex: Value<number> = new InputValue(0);
+    let nextChildIndex: Value<number> = new StaticValue(0);
     for (const child of element.props.children) {
       const [_, childIndex] = renderElement(child, elementNode, stateWatcher, nextChildIndex, derivedListener);
       nextChildIndex = childIndex;
@@ -200,7 +196,7 @@ export function renderElement(
       for (const name in events) {
         elementNode.removeEventListener(name, events[name]);
       }
-      for (const [value, listener] of attrValueListeners) {
+      for (const [value, listener] of propertyValueListeners) {
         value.removeUpdateListener(listener);
       }
       elementNode.remove()

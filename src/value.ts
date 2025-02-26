@@ -91,6 +91,21 @@ export abstract class Value<Type> {
   // }
 }
 
+export class StaticValue<Type> extends Value<Type> {
+  protected value: Type;
+  isEqual: IsEqual<Type>;
+
+  constructor(value: Type, isEqual = strictEquals) {
+    super();
+    this.value = value;
+    this.isEqual = isEqual;
+  }
+
+  extract() {
+    return this.value;
+  }
+}
+
 export class InputValue<Type> extends Value<Type> {
   protected value: Type;
   isEqual: IsEqual<Type>;

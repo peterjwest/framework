@@ -35,6 +35,4 @@ export namespace JSX {
 
   // See: https://www.typescriptlang.org/docs/handbook/jsx.html#children-type-checking
   export interface ElementChildrenAttribute { children: any }
-
-  // TODO: Look into JSX.IntrinsicClassAttributes<T>
 }
