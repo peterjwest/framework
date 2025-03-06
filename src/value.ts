@@ -69,7 +69,7 @@ export abstract class Value<Type> {
   }
 
   /** Returns a new ComputedValue from a property of this Value */
-  get<Key extends keyof Type>(path: Key): Value<Type[Key]> {
+  get<Key extends keyof Type>(path: Key): ComputedValue<Type[Key]> {
     return this.computed((value) => value[path]);
   }
 
@@ -197,9 +197,9 @@ export class ProxyValue<Type> extends Value<Type> {
     for (const derived of this.derivedValues) {
       derived.update();
     }
-    const target = this.extract();
+    const value = this.extract();
     for (const listener of this.updateListeners) {
-      listener(target);
+      listener(value);
     }
   }
 
@@ -211,6 +211,46 @@ export class ProxyValue<Type> extends Value<Type> {
     return this.target.extract();
   }
 }
+
+// TODO: Non-input property value
+
+export class InputPropertyValue<Type, Key extends keyof Type> extends Value<Type[Key]> {
+    target!: InputValue<Type>;
+    property: Key;
+
+    constructor(target: InputValue<Type>, property: Key) {
+      super();
+      this.setTarget(target);
+      this.property = property;
+    }
+
+    setTarget(target: InputValue<Type>) {
+      if (this.target) this.target.removeDerivedValue(this);
+      this.target = target;
+      this.target.addDerivedValue(this);
+      this.update();
+    }
+
+    update() {
+      // TODO: Update up the stack without triggering dervieds
+      // Except in the case where this was triggered from the target (in that case do nothing)
+      for (const derived of this.derivedValues) {
+        derived.update();
+      }
+      const value = this.extract();
+      for (const listener of this.updateListeners) {
+        listener(value);
+      }
+    }
+
+    deactivate() {
+      this.target.removeDerivedValue(this);
+    }
+
+    extract() {
+      return this.target.extract()[this.property];
+    }
+  }
 
 export class DeriveValueListener {
   children: Set<DeriveValueListener> = new Set();

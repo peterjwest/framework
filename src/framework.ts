@@ -1,6 +1,6 @@
 import { isPrimitive, childrenToArray, primitiveToString } from './util';
 import { Component, ElementNode, ComponentChild, ChildrenNodeProps } from './jsx';
-import { Value, InputValue, DerivedValue, StaticValue, IsEqual, ProxyValue, DeriveValueListener } from './value';
+import { Value, InputValue, DerivedValue, StaticValue, IsEqual, ProxyValue, DeriveValueListener, ComputedValue } from './value';
 
 import diffList, { ACTIONS } from './diffList';
 
@@ -37,7 +37,7 @@ export function Condition(props: ConditionProps): ElementNode<ConditionProps> {
 }
 
 interface ListProps<Type> {
-  data: Value<Type[]>,
+  data: Value<Type[]> | DerivedValue<Type[]>,
   itemKey: string,
   itemIsEqual?: IsEqual<Type>,
   each: (item: Value<Type>) => ComponentChild,
@@ -60,12 +60,11 @@ export function permuteValues(inputs: Value<any>[], values: Value<any>[] = []) {
 }
 
 /** Inserts an element at the specified index in a parent element */
-export function insertAtIndex(parent: HTMLElement, indexValue: Value<number>, element: HTMLElement | Text) {
-  const index = indexValue.extract();
-  if (index >= parent.children.length) {
+export function insertAtIndex(parent: HTMLElement, index: number, element: HTMLElement | Text) {
+  if (index >= parent.childNodes.length) {
     parent.appendChild(element);
   } else {
-    parent.insertBefore(element, parent.children[index] as Element);
+    parent.insertBefore(element, parent.childNodes[index] as Element);
   }
 }
 
@@ -125,7 +124,7 @@ export function renderElement(
 
   if (isPrimitive(element)) {
     const textNode = document.createTextNode(primitiveToString(element));
-    insertAtIndex(parentElement, childIndex, textNode);
+    insertAtIndex(parentElement, childIndex.extract(), textNode);
     return [() => textNode.remove(), childIndex.computed((value) => value + 1)];
   }
 
@@ -135,7 +134,7 @@ export function renderElement(
       textNode.textContent = primitiveToString(value);
     }
     element.addUpdateListener(updateListener);
-    insertAtIndex(parentElement, childIndex, textNode);
+    insertAtIndex(parentElement, childIndex.extract(), textNode);
     const unrender = () => {
       element.removeUpdateListener(updateListener);
       textNode.remove();
@@ -190,7 +189,7 @@ export function renderElement(
       nextChildIndex = childIndex;
     }
 
-    insertAtIndex(parentElement, childIndex, elementNode);
+    insertAtIndex(parentElement, childIndex.extract(), elementNode);
 
     const unrender = () => {
       for (const name in events) {
@@ -213,10 +212,10 @@ export function renderElement(
     const finalChildIndex = new ProxyValue(childIndex);
 
     const updateListener = (nextData: any[]) => {
+      // TODO: Map currentData to keys so that they can't be changed by side effects?
       const actions = diffList(currentData, nextData, component.props.itemKey);
 
       for (const action of actions) {
-        // TODO: move and replace
         if (action[0] === ACTIONS.add) {
           const index = action[1];
           const input = new InputValue(nextData[index], component.props.itemIsEqual || undefined);
@@ -241,6 +240,31 @@ export function renderElement(
           const nextMetadata = listMetadata[index + 1];
           const nextIndex = nextMetadata ? nextMetadata.startIndex : finalChildIndex;
           nextIndex.setTarget(metadata.endIndex);
+        }
+        if (action[0] === ACTIONS.move) {
+          const [_, currentIndex, newIndex] = action;
+          const metadata = listMetadata[currentIndex]!;
+          let destinationIndex = (listMetadata[newIndex - 1]?.startIndex || childIndex).extract();
+          console.log(currentIndex, newIndex, metadata.startIndex.extract(), metadata.endIndex.extract());
+          for (let i = metadata.startIndex.extract(); i < metadata.endIndex.extract(); i++) {
+            insertAtIndex(parentElement, destinationIndex++, parentElement.childNodes[i]! as HTMLElement | Text);
+          }
+
+          if (currentIndex > newIndex) {
+            listMetadata.splice(currentIndex, 1);
+            listMetadata.splice(newIndex, 0, metadata);
+          } else {
+            listMetadata.splice(newIndex, 0, metadata)
+            listMetadata.splice(currentIndex, 1);
+          }
+
+          console.log(listMetadata)
+
+
+          // TODO: Take element and insert before
+          // parentElement index -> newIndex
+          // Update proxy chain
+          // Splice metadata
         }
         if (action[0] === ACTIONS.remove) {
           const index = action[1];

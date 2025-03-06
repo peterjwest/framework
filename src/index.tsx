@@ -1,6 +1,7 @@
 import { ComponentChildren, CreateState } from './jsx';
 import { Value, StaticValue, DeriveValueListener } from './value';
 import { renderElement, Condition, List, StateWatcher } from './framework';
+import {isEqualsGreaterThanToken} from 'typescript';
 
 function ErrorMessage({ message }: { message: Value<string> }) {
   return <div>Error! {message}</div>;
@@ -28,6 +29,7 @@ export function Component({}, createState: CreateState) {
   const search = createState('hi');
   const count = createState(2);
   const date = createState(new Date());
+  const isReversed = createState(false);
 
   // TODO: Async
   // const results = search.debounce(100).computed(
@@ -37,9 +39,14 @@ export function Component({}, createState: CreateState) {
     ({ success: true, data: Array(Math.max(0, count)).fill(undefined).map((_, index) => ({ id: index, name: search })) })
   );
 
+  const resultsSorted = Value.computed([results, isReversed], (results, isReversed) => {
+    return isReversed ? results.data.slice(0).reverse() : results.data;
+  })
+
   const firstName = fullName.computed((fullName) => fullName.split(' ')[0]);
   const ratio = Value.computed([search, count], (search, count) => search.length / count);
 
+  // TODO: Make 'get' cached
   const resultsLength = results.get('data').get('length');
 
   return (
@@ -55,6 +62,9 @@ export function Component({}, createState: CreateState) {
             <option value="banana">Banana</option>
             <option value="cabbage">Cabbage</option>
           </select>
+          {/* TODO: Fix checked */}
+          <input type="checkbox" events={{ input: isReversed.bind('checked', Boolean) }}/>
+          <div>{isReversed}</div>
           <input type="datetime-local" events={{ input: date.bind('value', (value) => new Date(value)) }}/>
 
           <textarea style="display: block;" value={search} events={{ input: search.bind('value') }}></textarea>
@@ -74,14 +84,17 @@ export function Component({}, createState: CreateState) {
                   Found {resultsLength} results for {search}
                   <pre>Ratio: {ratio}</pre>
                 </div>
-                <List data={results.get('data')} itemKey={'id'} each={(item) => {
+                <List data={resultsSorted} itemKey={'id'} each={(item) => {
                   const count = createState(0);
                   const username = fullName.computed((fullName) => fullName.toLowerCase());
-                  return <div class="item">
-                    <span>{item.get('name')} owned by {username} - </span>
-                    <b>{count} </b>
-                    <button events={{ click: () => count.update(count.extract() + 1)}}>Increment</button>
-                  </div>;
+                  return <>
+                    <h3>Item! {item.get('id')}</h3>
+                    <div class="item">
+                      <span>{item.get('name')} owned by {username}#{item.get('id')}  - </span>
+                      <b>{count} </b>
+                      <button events={{ click: () => count.update(count.extract() + 1)}}>Increment</button>
+                    </div>
+                  </>;
                 }} />
               </>
             )}
@@ -97,3 +110,37 @@ export function Component({}, createState: CreateState) {
 const listener = new DeriveValueListener([]);
 (document as any).listener = listener;
 renderElement(<Component/>, document.body, new StateWatcher(), new StaticValue(0), listener);
+
+const store = createState({
+  results: [],
+});
+
+const data = query.computed(async (query, previous, cancel) => keyBy(await api.get(query, cancel), 'id'));
+
+data.inProgress(); // ComputedValue<boolean>
+
+store.get('results').populate([data], (previousResults, data) => {
+  return previousResults.map((result) => ({ ...result, data: data[result.id] }));
+  // return update(previousResults, '[].data', (result) => data[result.id]))
+});
+
+// TODO: Look into Rambda
+
+const x: ProxyValue<Type> = store.get('x');
+store.proxies = {
+  x,
+}
+const y: ProxyValue<Type> = store.get(0);
+store.listProxies = [
+  y,
+]
+
+// on update:
+//   loop through proxies:
+//     update to new value if not isEqual
+//   loop through list proxies:
+//     update to new value if not isEqual
+//       [[what if undefined?]]
+
+// on list move:
+  // move list proxy to correct index
