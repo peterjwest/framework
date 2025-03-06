@@ -14,7 +14,7 @@ type ExtractValues<Type extends Value<unknown>[]> = {
 } & {length: Type['length']};
 
 /** Value which is derived from another Value */
-export type DerivedValue<Type> = ProxyValue<Type> | ComputedValue<Type>;
+export type DerivedValue<Type> = ProxyValue<Type> | ComputedValue<Type> | InputPropertyValue<Type, any, any>;
 
 /** A signal based wrapper for values */
 export abstract class Value<Type> {
@@ -68,11 +68,6 @@ export abstract class Value<Type> {
     this.deriveListeners.push(listener);
   }
 
-  /** Returns a new ComputedValue from a property of this Value */
-  get<Key extends keyof Type>(path: Key): Value<Type[Key]> {
-    return this.computed((value) => value[path]);
-  }
-
   /** Extracts the wrapped value */
   abstract extract(): Type
 
@@ -120,15 +115,31 @@ export class InputValue<Type> extends Value<Type> {
     return this.value;
   }
 
-  update(value: Type) {
+  change(value: Type) {
     if (this.isEqual(this.value, value)) return;
     this.value = value;
-    for (const derived of this.derivedValues) {
-      derived.update();
-    }
+
     for (const listener of this.updateListeners) {
       listener(this.value);
     }
+    for (const derived of this.derivedValues) {
+      derived.update();
+    }
+  }
+
+  /** Propagates a change from a child property value */
+  propagateChange(value: Type) {
+    if (this.isEqual(this.value, value)) return;
+    this.value = value;
+
+    for (const listener of this.updateListeners) {
+      listener(this.value);
+    }
+  }
+
+  /** Returns a new InputPropertyValue for this Value */
+  get<Key extends keyof Type>(path: Key): InputPropertyValue<Type[Key], Type, Key> {
+    return new InputPropertyValue(this, path);
   }
 
   /**
@@ -148,7 +159,7 @@ export class InputValue<Type> extends Value<Type> {
   ): (event: TargetedEvent<Element, TypedEvent>) => void {
     return (event: TargetedEvent<Element, TypedEvent>) => {
       const value = event.currentTarget[property];
-      this.update(transform ? transform(value): (value as Type));
+      this.change(transform ? transform(value): (value as Type));
     };
   }
 }
@@ -176,6 +187,11 @@ export class ComputedValue<Type> extends Value<Type> {
       listener(this.value);
     }
   }
+
+  /** Returns a new ComputedValue from a property of this Value */
+  get<Key extends keyof Type>(path: Key): ComputedValue<Type[Key]> {
+    return this.computed((value) => value[path]);
+  }
 }
 
 export class ProxyValue<Type> extends Value<Type> {
@@ -194,13 +210,19 @@ export class ProxyValue<Type> extends Value<Type> {
   }
 
   update() {
+    const value = this.extract();
+    for (const listener of this.updateListeners) {
+      listener(value);
+    }
+
     for (const derived of this.derivedValues) {
       derived.update();
     }
-    const target = this.extract();
-    for (const listener of this.updateListeners) {
-      listener(target);
-    }
+  }
+
+  /** Returns a new ComputedValue from a property of this Value's target */
+  get<Key extends keyof Type>(path: Key): ComputedValue<Type[Key]> {
+    return this.target.computed((value) => value[path]);
   }
 
   deactivate() {
@@ -211,6 +233,87 @@ export class ProxyValue<Type> extends Value<Type> {
     return this.target.extract();
   }
 }
+
+// TODO: Non-input property value(?)
+
+export class InputPropertyValue<Type extends ParentType[Key], ParentType, Key extends keyof ParentType> extends Value<Type> {
+    parent!: InputValue<ParentType> | InputPropertyValue<ParentType, any, any>;
+    property: Key;
+    isEqual: IsEqual<ParentType[Key]>;
+
+    constructor(
+      parent: InputValue<ParentType> | InputPropertyValue<ParentType, any, any>,
+      property: Key,
+      isEqual = strictEquals,
+    ) {
+      super();
+      this.setParent(parent);
+      this.property = property;
+      this.isEqual = isEqual;
+    }
+
+    setParent(parent: InputValue<ParentType> | InputPropertyValue<ParentType, any, any>) {
+      if (this.parent) this.parent.removeDerivedValue(this);
+      this.parent = parent;
+      this.parent.addDerivedValue(this);
+      this.update();
+    }
+
+    // TODO: Support function
+    change(value: ParentType[Key]) {
+      const parentValue = this.parent.extract();
+      if (this.isEqual(parentValue[this.property], value)) return;
+      parentValue[this.property] = value;
+      this.parent.propagateChange(parentValue);
+
+      for (const listener of this.updateListeners) {
+        listener(value);
+      }
+      for (const derived of this.derivedValues) {
+        derived.update();
+      }
+
+    }
+
+    // TODO: This currently ignores derived values, but we need to only ignore property values,
+    // since the relevant property has been updated already, computed values need to be re-run
+
+    /** Propagates a change from a child property value up through parents. */
+    propagateChange(value: Type) {
+      const parentValue = this.parent.extract();
+      parentValue[this.property] = value;
+      this.parent.propagateChange(parentValue);
+
+      for (const listener of this.updateListeners) {
+        listener(value);
+      }
+    }
+
+    // TODO: Support isEqual on all methods
+
+    /** Returns a new InputPropertyValue for this Value */
+    get<Key extends keyof Type>(path: Key): InputPropertyValue<Type[Key], Type, Key> {
+      return new InputPropertyValue(this, path);
+    }
+
+    update() {
+      const value = this.extract();
+      for (const listener of this.updateListeners) {
+        listener(value);
+      }
+      for (const derived of this.derivedValues) {
+        derived.update();
+      }
+    }
+
+    deactivate() {
+      this.parent.removeDerivedValue(this);
+    }
+
+    extract(): Type {
+      return this.parent.extract()[this.property] as Type;
+    }
+  }
 
 export class DeriveValueListener {
   children: Set<DeriveValueListener> = new Set();
@@ -224,7 +327,7 @@ export class DeriveValueListener {
     if (parent) parent.children.add(this);
   }
 
-  addValue = (value: Value<any>, derived: DerivedValue<any>) => {
+  addValue = (value: Value<any>, derived: DerivedValue<unknown>) => {
     this.derived.set(value, derived);
     for (const child of this.children) {
       child.addValue(value, derived);

@@ -12,11 +12,9 @@ type RemoveAction = [typeof ACTIONS.remove, number];
 type ReplaceAction = [typeof ACTIONS.replace, number, number];
 type Action = MoveAction | AddAction | RemoveAction | ReplaceAction;
 
-// TODO: Deal with duplicate keys
-
 /** Gets an item key, falling back to the item itself */
-function getItemKey<Key extends string>(item: Item<Key>, key: Key) {
-  const itemKey = item[key];
+function getItemKey(item: any, key?: string): any {
+  const itemKey = item && key !== undefined ? item[key] : undefined;
   return itemKey === undefined || itemKey === null ? item : itemKey;
 }
 
@@ -38,16 +36,25 @@ function maxDiffIndex(transformMap: Map<number, number>, prevMax?: number): [num
 }
 
 /** Creates a map from item keys to indexes */
-function createKeyMap<Key extends string>(list: Item<Key>[], key: Key) {
-  const keyMap = new Map<Item<Key>, number>();
+function createKeyMap(list: any[], key?: string): Map<any, number[]> {
+  const keyMap = new Map<any, number[]>();
   for (let i = 0; i < list.length; i++) {
-    keyMap.set(getItemKey(list[i]!, key), i);
+    const itemKey = getItemKey(list[i]!, key);
+    const mapItem = keyMap.get(itemKey);
+    if (mapItem) {
+      mapItem.push(i);
+    } else {
+      keyMap.set(itemKey, [i]);
+    }
+  }
+  for (const value of keyMap.values()) {
+    value.reverse();
   }
   return keyMap;
 }
 
 /** Computes the actions to update a list */
-export default function diffList<Key extends string>(currentList: Item<Key>[], nextList: Item<Key>[], key: Key) {
+export default function diffList(currentList: any[], nextList: any[], key?: string) {
   const actions: Action[] = [];
 
   const nextKeyMap = createKeyMap(nextList, key);
@@ -57,7 +64,8 @@ export default function diffList<Key extends string>(currentList: Item<Key>[], n
 
   for (let currentIndex = 0; currentIndex < currentList.length; currentIndex++) {
     const itemKey = getItemKey(currentList[currentIndex]!, key);
-    const nextIndex = nextKeyMap.get(itemKey);
+    const nextIndexList = nextKeyMap.get(itemKey);
+    const nextIndex = nextIndexList && nextIndexList.pop();
     if (nextIndex === undefined) {
       removedItemsList.push(currentIndex);
     }
@@ -67,8 +75,8 @@ export default function diffList<Key extends string>(currentList: Item<Key>[], n
 
   /** Set of removed items, excluding replacements */
   const removedItems = new Set(removedItemsList.slice(addedCount));
-
-  const prunedCurrentList: Item<Key>[] = [];
+  /** Current list with removals (but not replacements) removed */
+  const prunedCurrentList: any[] = [];
 
   for (let currentIndex = 0; currentIndex < currentList.length; currentIndex++) {
     if (removedItems.has(currentIndex)) {
@@ -95,7 +103,8 @@ export default function diffList<Key extends string>(currentList: Item<Key>[], n
   let replaced = 0;
   for (let nextIndex = 0; nextIndex < nextList.length; nextIndex++) {
     const nextItemKey = getItemKey(nextList[nextIndex]!, key);
-    const currentIndex = currentKeyMap.get(nextItemKey);
+    const currentIndexList = currentKeyMap.get(nextItemKey);
+    const currentIndex = currentIndexList && currentIndexList.pop();
 
     // If there's no currentIndex this is an added item
     if (currentIndex === undefined) {
@@ -135,3 +144,24 @@ export default function diffList<Key extends string>(currentList: Item<Key>[], n
 
   return actions;
 }
+
+
+// diffList algorithm:
+// REMOVALS
+// - create nextKeyMap of next item key -> index
+// - iterate through current items
+//   - items missing from nextKeyMap are removals
+// ADDITIONS / REPLACEMENTS
+// - compute added count
+// - compute replaced count
+// - create pruned current items, without removed items
+// - create currentKeyMap from pruned list of current item key -> index
+// - iterate through next items
+//   - items missing from currentKeyMap are additions
+//   - items within replaced count are replacements
+// MOVES
+// - create pruned next list, without added items
+// - iterate through pruned next list
+//   - create transformMap of current index -> next index
+// - while not finished:
+//   - move index with max diff to new position

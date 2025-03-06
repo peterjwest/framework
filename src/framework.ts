@@ -1,6 +1,6 @@
 import { isPrimitive, childrenToArray, primitiveToString } from './util';
 import { Component, ElementNode, ComponentChild, ChildrenNodeProps } from './jsx';
-import { Value, InputValue, DerivedValue, StaticValue, IsEqual, ProxyValue, DeriveValueListener } from './value';
+import { Value, InputValue, InputPropertyValue, DerivedValue, StaticValue, IsEqual, ProxyValue, DeriveValueListener, ComputedValue } from './value';
 
 import diffList, { ACTIONS } from './diffList';
 
@@ -36,19 +36,31 @@ export function Condition(props: ConditionProps): ElementNode<ConditionProps> {
   }
 }
 
-interface ListProps<Type> {
-  data: Value<Type[]>,
+// TODO: Overload interface for Input vs. Computed
+interface ComputedListProps<Type> {
+  data: ComputedValue<Type[]>,
   itemKey: string,
   itemIsEqual?: IsEqual<Type>,
-  each: (item: Value<Type>) => ComponentChild,
+  each: (item: ComputedValue<Type>) => ComponentChild,
 }
 
-export function List<Type>(props: ListProps<Type>): ElementNode<ListProps<Type>> {
+interface InputListProps<Type> {
+  data: InputValue<Type[]> | InputPropertyValue<Type[], any, any>,
+  itemKey: string,
+  itemIsEqual?: IsEqual<Type>,
+  each: (item: InputPropertyValue<Type, any, any>) => ComponentChild,
+}
+
+type ListProps<Type> = ComputedListProps<Type> | InputListProps<Type>;
+
+export function List<Type>(props: ComputedListProps<Type>): ElementNode<ComputedListProps<Type>>;
+export function List<Type>(props: InputListProps<Type>): ElementNode<InputListProps<Type>>;
+export function List<Type>(props: ListProps<Type>): ElementNode<ComputedListProps<Type>> | ElementNode<InputListProps<Type>> {
   // Note: this is never actually called, but needed for types
   return {
     type: List,
     props: { ...props, children: [] },
-  }
+  } as ElementNode<ComputedListProps<Type>> | ElementNode<InputListProps<Type>>;
 }
 
 export function permuteValues(inputs: Value<any>[], values: Value<any>[] = []) {
@@ -60,12 +72,11 @@ export function permuteValues(inputs: Value<any>[], values: Value<any>[] = []) {
 }
 
 /** Inserts an element at the specified index in a parent element */
-export function insertAtIndex(parent: HTMLElement, indexValue: Value<number>, element: HTMLElement | Text) {
-  const index = indexValue.extract();
-  if (index >= parent.children.length) {
+export function insertAtIndex(parent: HTMLElement, index: number, element: HTMLElement | Text) {
+  if (index >= parent.childNodes.length) {
     parent.appendChild(element);
   } else {
-    parent.insertBefore(element, parent.children[index] as Element);
+    parent.insertBefore(element, parent.childNodes[index] as Element);
   }
 }
 
@@ -89,7 +100,7 @@ export class StateWatcher {
 type Unrender = () => void;
 
 type ListItemMetadata = {
-  input: InputValue<any>
+  value: ComputedValue<any> | InputPropertyValue<any, any[], number>
   startIndex: ProxyValue<number>
   endIndex: Value<number>
   unrender: Unrender | undefined
@@ -125,7 +136,7 @@ export function renderElement(
 
   if (isPrimitive(element)) {
     const textNode = document.createTextNode(primitiveToString(element));
-    insertAtIndex(parentElement, childIndex, textNode);
+    insertAtIndex(parentElement, childIndex.extract(), textNode);
     return [() => textNode.remove(), childIndex.computed((value) => value + 1)];
   }
 
@@ -135,7 +146,7 @@ export function renderElement(
       textNode.textContent = primitiveToString(value);
     }
     element.addUpdateListener(updateListener);
-    insertAtIndex(parentElement, childIndex, textNode);
+    insertAtIndex(parentElement, childIndex.extract(), textNode);
     const unrender = () => {
       element.removeUpdateListener(updateListener);
       textNode.remove();
@@ -179,6 +190,7 @@ export function renderElement(
 
     // TODO: Look into virtual event https://github.com/preactjs/preact/blob/d7b47872734eafdd3fdc55eadd97898cf4232a86/src/diff/props.js#L29
     // Also: https://github.com/preactjs/preact/issues/3927
+    // TODO: Support eventListener options
     const events = element.props.events || {};
     for (const name in events) {
       elementNode.addEventListener(name, events[name]);
@@ -190,7 +202,7 @@ export function renderElement(
       nextChildIndex = childIndex;
     }
 
-    insertAtIndex(parentElement, childIndex, elementNode);
+    insertAtIndex(parentElement, childIndex.extract(), elementNode);
 
     const unrender = () => {
       for (const name in events) {
@@ -206,32 +218,32 @@ export function renderElement(
   }
 
   if (element.type === List) {
-    const component: ElementNode<ListProps<any>> = element;
+    const component: ElementNode<ComputedListProps<unknown>> | ElementNode<InputListProps<unknown>> = element;
 
     let currentData: any[] = [];
     const listMetadata: ListItemMetadata[] = [];
     const finalChildIndex = new ProxyValue(childIndex);
 
     const updateListener = (nextData: any[]) => {
+      // TODO: Map currentData to keys so that they can't be changed by side effects?
       const actions = diffList(currentData, nextData, component.props.itemKey);
 
       for (const action of actions) {
-        // TODO: move and replace
         if (action[0] === ACTIONS.add) {
           const index = action[1];
-          const input = new InputValue(nextData[index], component.props.itemIsEqual || undefined);
+          const value = component.props.data.get(index);
 
           const prevMetadata = listMetadata[index - 1];
           const startIndex = new ProxyValue(prevMetadata ? prevMetadata.endIndex : childIndex);
           const childComponent: ElementNode<{}> = {
-            type: function ListItem() { return component.props.each(input); },
+            type: function ListItem() { return component.props.each(value as any); },
             props: { children: [] },
           };
           const [unrender, endIndex] = renderElement(childComponent, parentElement, stateWatcher, startIndex, derivedListener);
 
           const metadata = {
             unrender,
-            input,
+            value,
             startIndex,
             endIndex,
           }
@@ -241,6 +253,31 @@ export function renderElement(
           const nextMetadata = listMetadata[index + 1];
           const nextIndex = nextMetadata ? nextMetadata.startIndex : finalChildIndex;
           nextIndex.setTarget(metadata.endIndex);
+        }
+        if (action[0] === ACTIONS.move) {
+          const [_, currentIndex, newIndex] = action;
+          const metadata = listMetadata[currentIndex]!;
+          let destinationIndex = (listMetadata[newIndex - 1]?.startIndex || childIndex).extract();
+          console.log(currentIndex, newIndex, metadata.startIndex.extract(), metadata.endIndex.extract());
+          for (let i = metadata.startIndex.extract(); i < metadata.endIndex.extract(); i++) {
+            insertAtIndex(parentElement, destinationIndex++, parentElement.childNodes[i]! as HTMLElement | Text);
+          }
+
+          if (currentIndex > newIndex) {
+            listMetadata.splice(currentIndex, 1);
+            listMetadata.splice(newIndex, 0, metadata);
+          } else {
+            listMetadata.splice(newIndex, 0, metadata)
+            listMetadata.splice(currentIndex, 1);
+          }
+
+          console.log(listMetadata)
+
+
+          // TODO: Take element and insert before
+          // parentElement index -> newIndex
+          // Update proxy chain
+          // Splice metadata
         }
         if (action[0] === ACTIONS.remove) {
           const index = action[1];
@@ -261,7 +298,7 @@ export function renderElement(
 
       currentData = nextData;
       for (let index = 0; index < listMetadata.length; index++) {
-        listMetadata[index]!.input.update(currentData[index]);
+        listMetadata[index]!.value.update();
       }
     }
 
@@ -318,7 +355,7 @@ export function renderElement(
   }
 
   const processedElement = element.type(element.props, stateWatcher.createState);
-  const derivedMapping: Map<Value<unknown>, DerivedValue<unknown>> = derivedListener ? derivedListener.extract() : new Map();
+  const derivedMapping: Map<Value<any>, DerivedValue<unknown>> = derivedListener ? derivedListener.extract() : new Map();
   const values = permuteValues(Array.from(derivedMapping.values()), stateWatcher.extract());
 
   const newListener = new DeriveValueListener(values, derivedListener);
