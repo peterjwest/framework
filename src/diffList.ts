@@ -1,4 +1,4 @@
-import { createEnumNumeric  } from "./util";
+import { createEnumNumeric  } from './util';
 
 /** Item in a list which contains a key */
 export type Item<Key extends string> = { [ItemKey in Key]?: any }

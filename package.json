@@ -1,17 +1,22 @@
 {
   "name": "framework",
   "version": "0.0.1",
+  "type": "module",
   "scripts": {
     "build": "vite build",
     "start": "vite",
-    "test": "vitest"
+    "test": "vitest --coverage"
   },
   "dependencies": {
-    "@types/node": "^22.10.9",
-    "typescript": "^5.7.3"
+    "@types/node": "^22.13.10",
+    "typescript": "^5.8.2"
   },
   "devDependencies": {
-    "vite": "^6.1.0",
-    "vitest": "^3.0.5"
+    "@types/sinon": "^17.0.4",
+    "@vitest/coverage-v8": "^3.0.9",
+    "sinon": "^19.0.2",
+    "sinon-assert-stub": "^3.0.1",
+    "vite": "^6.2.2",
+    "vitest": "^3.0.9"
   }
 }

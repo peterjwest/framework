@@ -26,7 +26,7 @@ type MathVariant = (
   'stretched'
 );
 
-export type MathMLAttributes<Target extends EventTarget = MathMLElement> = GenericAttributes<Target> & WrapAttributes<{
+export type MathMLAttributes<Target extends EventTarget = MathMLElement> = GenericAttributes & WrapAttributes<{
   dir?: 'ltr' | 'rtl';
   displaystyle?: boolean;
   /** @deprecated This feature is non-standard. See https://developer.mozilla.org/en-US/docs/Web/MathML/Global_attributes/href  */

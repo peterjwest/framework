@@ -1,4 +1,4 @@
-import { InputValue, Value } from './value';
+import { InputValue, AnyValue } from './value';
 import { IntrinsicMathMLElements } from './mathML';
 import { IntrinsicSVGElements } from './svg';
 import { IntrinsicHTMLElements } from './html';
@@ -11,7 +11,7 @@ export interface ElementNode<Props = {}> {
   props: Props & { children: ComponentChild[] };
 }
 
-export type ComponentChild = ElementNode<any> | Value<any> | Primitive;
+export type ComponentChild = ElementNode<any> | AnyValue<any> | Primitive;
 export type ComponentChildren = ComponentChild[] | ComponentChild;
 export type ChildrenNodeProps = { children?: ComponentChildren };
 export type CreateState = <Type>(value: Type) => InputValue<Type>;

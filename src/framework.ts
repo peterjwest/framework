@@ -1,6 +1,7 @@
 import { isPrimitive, childrenToArray, primitiveToString } from './util';
 import { Component, ElementNode, ComponentChild, ChildrenNodeProps } from './jsx';
-import { Value, InputValue, InputPropertyValue, DerivedValue, StaticValue, IsEqual, ProxyValue, DeriveValueListener, ComputedValue } from './value';
+import { Value, AnyValue, InputValue, InputPropertyValue, PropertyValue, DerivedValue, IsEqual, ProxyValue, ComputedValue } from './value';
+import DeriveValueListener from './DeriveValueListener';
 
 import diffList, { ACTIONS } from './diffList';
 
@@ -23,7 +24,7 @@ export function createElementNode<Props extends ChildrenNodeProps>(
 }
 
 interface ConditionProps {
-  if: Value<boolean | number>,
+  if: AnyValue<any>,
   then?: (() => ComponentChild) | ComponentChild,
   else?: (() => ComponentChild) | ComponentChild,
 }
@@ -36,7 +37,6 @@ export function Condition(props: ConditionProps): ElementNode<ConditionProps> {
   }
 }
 
-// TODO: Overload interface for Input vs. Computed
 interface ComputedListProps<Type> {
   data: ComputedValue<Type[]>,
   itemKey: string,
@@ -100,7 +100,7 @@ export class StateWatcher {
 type Unrender = () => void;
 
 type ListItemMetadata = {
-  value: ComputedValue<any> | InputPropertyValue<any, any[], number>
+  value: PropertyValue<any, any[], number> | InputPropertyValue<any, any[], number>
   startIndex: ProxyValue<number>
   endIndex: Value<number>
   unrender: Unrender | undefined
@@ -130,7 +130,7 @@ export function renderElement(
   element: ComponentChild,
   parentElement: HTMLElement,
   stateWatcher = new StateWatcher(),
-  childIndex: Value<number> = new StaticValue(0),
+  childIndex: Value<number> = new Value(0),
   derivedListener?: DeriveValueListener,
 ): [Unrender | undefined, Value<number>] {
 
@@ -188,7 +188,7 @@ export function renderElement(
       }
     }
 
-    // TODO: Look into virtual event https://github.com/preactjs/preact/blob/d7b47872734eafdd3fdc55eadd97898cf4232a86/src/diff/props.js#L29
+    // TODO: Look into virtual event https://github.com/preactjs/preact/blob/d7b47872734eafdd3fdc55eadd97898cf4232a86/src/diff/props#L29
     // Also: https://github.com/preactjs/preact/issues/3927
     // TODO: Support eventListener options
     const events = element.props.events || {};
@@ -196,7 +196,7 @@ export function renderElement(
       elementNode.addEventListener(name, events[name]);
     }
 
-    let nextChildIndex: Value<number> = new StaticValue(0);
+    let nextChildIndex: Value<number> = new Value(0);
     for (const child of element.props.children) {
       const [_, childIndex] = renderElement(child, elementNode, stateWatcher, nextChildIndex, derivedListener);
       nextChildIndex = childIndex;
@@ -319,7 +319,7 @@ export function renderElement(
     let unrenderBlock: Unrender | undefined;
     let lastCondition: boolean | undefined;
 
-    const updateListener = (condition: number | boolean) => {
+    const updateListener = (condition: any) => {
       if (lastCondition !== Boolean(condition)) {
         const block = condition ? component.props.then : component.props.else;
         if (unrenderBlock) {
@@ -359,7 +359,6 @@ export function renderElement(
   const values = permuteValues(Array.from(derivedMapping.values()), stateWatcher.extract());
 
   const newListener = new DeriveValueListener(values, derivedListener);
-  newListener.ref = element.type;
   const [unrenderElement, nextChildIndex] = renderElement(processedElement, parentElement, stateWatcher, childIndex, newListener);
 
   const unrender = () => {

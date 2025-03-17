@@ -21,7 +21,7 @@ type ArabicForm = 'initial' | 'medial' | 'terminal' | 'isolated';
 
 type ColorInterpolationFilter = 'auto' | 'sRGB' | 'linearRGB' | 'inherit';
 
-export type SVGAttributes<Target extends EventTarget = SVGElement> = GenericAttributes<Target> & WrapAttributes<{
+export type SVGAttributes<Target extends EventTarget = SVGElement> = GenericAttributes & WrapAttributes<{
   accentHeight?: number | string;
   accumulate?: 'none' | 'sum';
   additive?: 'replace' | 'sum';

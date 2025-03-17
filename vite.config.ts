@@ -16,9 +16,12 @@ export default defineConfig({
     ],
   },
   test: {
+    include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
     watch: false,
-    exclude: [
-      'preact'
-    ]
-  }
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'html'],
+      exclude: ['build/**'],
+    },
+  },
 });

@@ -1,5 +1,6 @@
 import { ComponentChildren, CreateState } from './jsx';
-import { Value, StaticValue, DeriveValueListener } from './value';
+import { Value } from './value';
+import DeriveValueListener from './DeriveValueListener';
 import { renderElement, Condition, List, StateWatcher } from './framework';
 
 function ErrorMessage({ message }: { message: Value<string> }) {
@@ -31,7 +32,7 @@ export function Component({}, createState: CreateState) {
   const isReversed = createState(false);
 
   const store = createState({
-    foo: [{ name: 'a', count: 0 }, { name: 'b', count: 0 }, { name: 'c', count: 0 }],
+    foo: [{ name: 'a', count: 0 }, { name: 'b', count: 10 }, { name: 'c', count: 0 }],
     bar: { zim: 'x' },
   })
 
@@ -89,7 +90,7 @@ export function Component({}, createState: CreateState) {
             <option value="cabbage">Cabbage</option>
           </select>
           {/* TODO: Fix checked */}
-          <input type="checkbox" events={{ input: isReversed.bind('checked', Boolean) }}/>
+          <input type="checkbox" events={{ input: isReversed.bind('checked') }}/>
           <div>{isReversed}</div>
           <input type="datetime-local" events={{ input: date.bind('value', (value) => new Date(value)) }}/>
 
@@ -143,7 +144,7 @@ export function Component({}, createState: CreateState) {
 
 const listener = new DeriveValueListener([]);
 (document as any).listener = listener;
-renderElement(<Component/>, document.body, new StateWatcher(), new StaticValue(0), listener);
+renderElement(<Component/>, document.body, new StateWatcher(), new Value(0), listener);
 
 // const store = createState({
 //   results: [],
