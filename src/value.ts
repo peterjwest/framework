@@ -189,7 +189,8 @@ export class InputValue<Type> extends ComparableValue<Type> {
     if (this.isEqual(this.value, computedValue)) return;
 
     this.value = computedValue;
-    this.propagateChange();
+    this.callUpdateListeners();
+    this.updateDerivedValues();
     this.updatePropertyValues();
   }
 

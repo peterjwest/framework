@@ -88,6 +88,31 @@ export function getEndIndex(listMetadata: ListItemMetadata[], index: number, pre
   return listMetadata[index]?.endIndex || prevChildIndex;
 }
 
+export function removeIndexFromChain(
+  listMetadata: ListItemMetadata[],
+  index: number,
+  prevChildIndex: Value<number>,
+  nextChildIndex: ProxyValue<number>,
+) {
+  const prevMetadataIndex = getEndIndex(listMetadata, index - 1, prevChildIndex);
+  const nextMetadataIndex = getStartIndex(listMetadata, index + 1, nextChildIndex);
+  nextMetadataIndex.setTarget(prevMetadataIndex);
+}
+
+export function addIndexToChain(
+  listMetadata: ListItemMetadata[],
+  index: number,
+  prevChildIndex: Value<number>,
+  nextChildIndex: ProxyValue<number>,
+) {
+  const prevMetadataIndex = getEndIndex(listMetadata, index - 1, prevChildIndex);
+  const currentMetadataStartIndex = getStartIndex(listMetadata, index, nextChildIndex);
+  currentMetadataStartIndex.setTarget(prevMetadataIndex);
+
+  const currentMetadataEndIndex = getEndIndex(listMetadata, index, prevChildIndex);
+  const nextMetadataIndex = getStartIndex(listMetadata, index + 1, nextChildIndex);
+  nextMetadataIndex.setTarget(currentMetadataEndIndex);
+}
 
 export function updateMetadataIndexTarget(
   listMetadata: ListItemMetadata[],
@@ -267,11 +292,9 @@ export function renderElement(
             endIndex,
           }
           listMetadata.splice(index, 0, metadata);
-
-          // Add proxy index to chain
-          updateMetadataIndexTarget(listMetadata, index, childIndex, finalChildIndex);
-          updateMetadataIndexTarget(listMetadata, index + 1, childIndex, finalChildIndex);
+          addIndexToChain(listMetadata, index, childIndex, finalChildIndex);
         }
+
         if (action[0] === ACTIONS.move) {
           const [_, currentIndex, newIndex] = action;
           const metadata = listMetadata[currentIndex]!;
@@ -281,31 +304,12 @@ export function renderElement(
             insertAtIndex(parentElement, destinationIndex++, parentElement.childNodes[i]! as HTMLElement | Text);
           }
 
+          removeIndexFromChain(listMetadata, currentIndex, childIndex, finalChildIndex);
           listMetadata.splice(currentIndex, 1);
           listMetadata.splice(newIndex, 0, metadata);
-
-          // currentIndex: 8, newIndex: 1
-          // 0 <- 1 ... 7 <- 8 <- 9
-          // 0 <- 1 ... 7 <- 8
-          // 0 <- 1 <- 2 ... 8 <- 9
-
-          // currentIndex: 1, newIndex: 8
-          // 0 <- 1 <- 2 ... 7 <- 8
-          // 0 <- 1 ... 7 <- 8
-          // 0 <- 1 ... 7 <- 8 <- 9
-
-          // TODO: Update to removeFromChain/addToChain
-          // Update proxy chain
-          if (currentIndex > newIndex) {
-            updateMetadataIndexTarget(listMetadata, newIndex, childIndex, finalChildIndex);
-            updateMetadataIndexTarget(listMetadata, newIndex + 1, childIndex, finalChildIndex);
-            updateMetadataIndexTarget(listMetadata, currentIndex + 1, childIndex, finalChildIndex);
-          } else {
-            updateMetadataIndexTarget(listMetadata, currentIndex, childIndex, finalChildIndex);
-            updateMetadataIndexTarget(listMetadata, newIndex, childIndex, finalChildIndex);
-            updateMetadataIndexTarget(listMetadata, newIndex + 1, childIndex, finalChildIndex);
-          }
+          addIndexToChain(listMetadata, newIndex, childIndex, finalChildIndex);
         }
+
         if (action[0] === ACTIONS.remove) {
           const index = action[1];
           const metadata = listMetadata[index]!;
@@ -313,11 +317,8 @@ export function renderElement(
 
           if (metadata.unrender) metadata.unrender();
 
+          removeIndexFromChain(listMetadata, index, childIndex, finalChildIndex);
           listMetadata.splice(index, 1);
-
-          // Remove proxy index from chain
-          updateMetadataIndexTarget(listMetadata, index, childIndex, finalChildIndex);
-          metadata.startIndex.removeTarget();
         }
       }
 
@@ -325,7 +326,6 @@ export function renderElement(
       for (let index = 0; index < listMetadata.length; index++) {
         listMetadata[index]!.value.setProperty(index);
       }
-
     }
 
     component.props.data.addUpdateListener(updateListener);
@@ -333,6 +333,9 @@ export function renderElement(
     const unrender = () => {
       for (const metadata of listMetadata) if (metadata.unrender) metadata.unrender();
       component.props.data.removeUpdateListener(updateListener);
+      for (const metadata of listMetadata) {
+        component.props.data.removePropertyValue(metadata.value as any);
+      }
     }
 
     return [unrender, finalChildIndex];
