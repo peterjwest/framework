@@ -35,26 +35,26 @@ export function Component({}, createState: CreateState) {
     foo: [{ name: 'a', count: 0 }, { name: 'b', count: 10 }, { name: 'c', count: 0 }],
     bar: { zim: 'x' },
   })
-
-  const bar = store.get('bar');
-  const zim = bar.get('zim');
   const foo = store.get('foo')
-  const firstItem = foo.get(0);
 
-  store.addUpdateListener((value) => console.log('store', value));
-  bar.addUpdateListener((value) => console.log('bar', value));
-  zim.addUpdateListener((value) => console.log('zim', value));
+  // const bar = store.get('bar');
+  // const zim = bar.get('zim');
+  // const firstItem = foo.get(0);
 
-  console.log('change zim:');
-  zim.change('y');
+  // store.addUpdateListener((value) => console.log('store', value));
+  // bar.addUpdateListener((value) => console.log('bar', value));
+  // zim.addUpdateListener((value) => console.log('zim', value));
 
-  console.log('change store.bar.zim:');
-  store.change({ ...store.extract(), bar: { zim: 'z' }})
+  // console.log('change zim:');
+  // zim.change('y');
 
-  console.log('change foo[0]:');
-  firstItem.change({ name: 'a', count: 1});
+  // console.log('change store.bar.zim:');
+  // store.change({ ...store.extract(), bar: { zim: 'z' }})
 
-  console.log(store.extract().foo);
+  // console.log('change foo[0]:');
+  // firstItem.change({ name: 'a', count: 1});
+
+  // console.log(store.extract().foo);
 
 
   // TODO: Async
@@ -73,7 +73,6 @@ export function Component({}, createState: CreateState) {
   const firstName = fullName.computed((fullName) => fullName.split(' ')[0]);
   const ratio = Value.computed([search, count], (search, count) => search.length / count);
 
-  // TODO: Make 'get' cached
   const resultsLength = results.get('data').get('length');
 
   return (
@@ -89,8 +88,9 @@ export function Component({}, createState: CreateState) {
             <option value="banana">Banana</option>
             <option value="cabbage">Cabbage</option>
           </select>
-          {/* TODO: Fix checked */}
           <input type="checkbox" events={{ input: isReversed.bind('checked') }}/>
+          {/* TODO: Fix checked property */}
+          <input type="checkbox" checked={isReversed}events={{ input: isReversed.bind('checked') }}/>
           <div>{isReversed}</div>
           <input type="datetime-local" events={{ input: date.bind('value', (value) => new Date(value)) }}/>
 
@@ -111,7 +111,6 @@ export function Component({}, createState: CreateState) {
                   Found {resultsLength} results for {search}
                   <pre>Ratio: {ratio}</pre>
                 </div>
-                {/* TODO: Automatically determine item type */}
                 <List data={resultsSorted} itemKey={'id'} each={(item) => {
                   const count = createState(0);
                   const username = fullName.computed((fullName) => fullName.toLowerCase());

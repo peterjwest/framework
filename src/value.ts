@@ -107,11 +107,6 @@ export class Value<Type> {
     return Value.computed([this], compute);
   }
 
-  /** Returns a new PropertyValue for a property of this value */
-  get<Key extends keyof Type>(path: Key) {
-    return new PropertyValue(this, path)
-  }
-
   // TODO: Debounce/async
 }
 
@@ -121,6 +116,16 @@ export class ComparableValue<Type> extends Value<Type> {
   constructor(value: Type, isEqual: IsEqual<Type> = strictEquals) {
     super(value);
     this.isEqual = isEqual;
+  }
+
+  /** Removes an InputPropertyValue which is no longer derived from this Value */
+  removePropertyValue(value: DerivedValue<any>) {
+    this.derivedValues.delete(value);
+  }
+
+  /** Returns a new PropertyValue for a property of this value */
+  get<Key extends keyof Type>(path: Key) {
+    return new PropertyValue(this, path)
   }
 }
 
@@ -227,6 +232,11 @@ export class InputPropertyValue<Type extends ParentType[Key], ParentType, Key ex
     this.updateDerivedValues();
   }
 
+  setProperty(property: Key) {
+    this.property = property;
+    this.update();
+  }
+
   update() {
     const value = this.parent.extract()[this.property] as Type;
     if (this.isEqual(this.value, value)) return;
@@ -279,27 +289,35 @@ export class ProxyValue<Type> extends Value<Type> {
     this.updateDerivedValues();
   }
 
-  deactivate() {
+  removeTarget() {
     this.target.removeDerivedValue(this);
   }
 }
 
-export class PropertyValue<Type extends ParentType[Key], ParentType, Key extends keyof ParentType> extends Value<Type> {
-  parent: Value<ParentType>;
+export class PropertyValue<Type extends ParentType[Key], ParentType, Key extends keyof ParentType> extends ComparableValue<Type> {
+  parent: ComparableValue<ParentType>;
   property: Key;
 
   constructor(
-    parent: Value<ParentType>,
+    parent: ComparableValue<ParentType>,
     property: Key,
+    isEqual: IsEqual<Type> = strictEquals
   ) {
-    super(parent.extract()[property] as Type);
+    super(parent.extract()[property] as Type, isEqual);
     this.property = property;
     this.parent = parent;
     this.parent.addDerivedValue(this);
   }
 
+  setProperty(property: Key) {
+    this.property = property;
+    this.update();
+  }
+
   update() {
-    this.value = this.parent.extract()[this.property] as Type;
+    const value = this.parent.extract()[this.property] as Type;
+    if (this.isEqual(this.value, value)) return;
+    this.value = value;
 
     this.callUpdateListeners();
     this.updateDerivedValues();

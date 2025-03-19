@@ -41,7 +41,7 @@ interface ComputedListProps<Type> {
   data: ComputedValue<Type[]>,
   itemKey: string,
   itemIsEqual?: IsEqual<Type>,
-  each: (item: ComputedValue<Type>) => ComponentChild,
+  each: (item: PropertyValue<Type, any, any>) => ComponentChild,
 }
 
 interface InputListProps<Type> {
@@ -78,6 +78,26 @@ export function insertAtIndex(parent: HTMLElement, index: number, element: HTMLE
   } else {
     parent.insertBefore(element, parent.childNodes[index] as Element);
   }
+}
+
+export function getStartIndex(listMetadata: ListItemMetadata[], index: number, nextChildIndex: ProxyValue<number>) {
+  return listMetadata[index]?.startIndex || nextChildIndex;
+}
+
+export function getEndIndex(listMetadata: ListItemMetadata[], index: number, prevChildIndex: Value<number>) {
+  return listMetadata[index]?.endIndex || prevChildIndex;
+}
+
+
+export function updateMetadataIndexTarget(
+  listMetadata: ListItemMetadata[],
+  index: number,
+  prevChildIndex: Value<number>,
+  nextChildIndex: ProxyValue<number>,
+) {
+  const currentMetadataIndex = getStartIndex(listMetadata, index, nextChildIndex);
+  const prevMetadataIndex = getEndIndex(listMetadata, index - 1, prevChildIndex);
+  currentMetadataIndex.setTarget(prevMetadataIndex);
 }
 
 /** Wrapper for createState helper to track inputs */
@@ -233,8 +253,7 @@ export function renderElement(
           const index = action[1];
           const value = component.props.data.get(index);
 
-          const prevMetadata = listMetadata[index - 1];
-          const startIndex = new ProxyValue(prevMetadata ? prevMetadata.endIndex : childIndex);
+          const startIndex = new ProxyValue(getEndIndex(listMetadata, index - 1, childIndex));
           const childComponent: ElementNode<{}> = {
             type: function ListItem() { return component.props.each(value as any); },
             props: { children: [] },
@@ -250,56 +269,63 @@ export function renderElement(
           listMetadata.splice(index, 0, metadata);
 
           // Add proxy index to chain
-          const nextMetadata = listMetadata[index + 1];
-          const nextIndex = nextMetadata ? nextMetadata.startIndex : finalChildIndex;
-          nextIndex.setTarget(metadata.endIndex);
+          updateMetadataIndexTarget(listMetadata, index, childIndex, finalChildIndex);
+          updateMetadataIndexTarget(listMetadata, index + 1, childIndex, finalChildIndex);
         }
         if (action[0] === ACTIONS.move) {
           const [_, currentIndex, newIndex] = action;
           const metadata = listMetadata[currentIndex]!;
-          let destinationIndex = (listMetadata[newIndex - 1]?.startIndex || childIndex).extract();
-          console.log(currentIndex, newIndex, metadata.startIndex.extract(), metadata.endIndex.extract());
+          let destinationIndex = getEndIndex(listMetadata, newIndex - 1, childIndex).extract();
+
           for (let i = metadata.startIndex.extract(); i < metadata.endIndex.extract(); i++) {
             insertAtIndex(parentElement, destinationIndex++, parentElement.childNodes[i]! as HTMLElement | Text);
           }
 
-          if (currentIndex > newIndex) {
-            listMetadata.splice(currentIndex, 1);
-            listMetadata.splice(newIndex, 0, metadata);
-          } else {
-            listMetadata.splice(newIndex, 0, metadata)
-            listMetadata.splice(currentIndex, 1);
-          }
+          listMetadata.splice(currentIndex, 1);
+          listMetadata.splice(newIndex, 0, metadata);
 
-          console.log(listMetadata)
+          // currentIndex: 8, newIndex: 1
+          // 0 <- 1 ... 7 <- 8 <- 9
+          // 0 <- 1 ... 7 <- 8
+          // 0 <- 1 <- 2 ... 8 <- 9
 
+          // currentIndex: 1, newIndex: 8
+          // 0 <- 1 <- 2 ... 7 <- 8
+          // 0 <- 1 ... 7 <- 8
+          // 0 <- 1 ... 7 <- 8 <- 9
 
-          // TODO: Take element and insert before
-          // parentElement index -> newIndex
+          // TODO: Update to removeFromChain/addToChain
           // Update proxy chain
-          // Splice metadata
+          if (currentIndex > newIndex) {
+            updateMetadataIndexTarget(listMetadata, newIndex, childIndex, finalChildIndex);
+            updateMetadataIndexTarget(listMetadata, newIndex + 1, childIndex, finalChildIndex);
+            updateMetadataIndexTarget(listMetadata, currentIndex + 1, childIndex, finalChildIndex);
+          } else {
+            updateMetadataIndexTarget(listMetadata, currentIndex, childIndex, finalChildIndex);
+            updateMetadataIndexTarget(listMetadata, newIndex, childIndex, finalChildIndex);
+            updateMetadataIndexTarget(listMetadata, newIndex + 1, childIndex, finalChildIndex);
+          }
         }
         if (action[0] === ACTIONS.remove) {
           const index = action[1];
           const metadata = listMetadata[index]!;
+          component.props.data.removePropertyValue(metadata.value as any);
 
           if (metadata.unrender) metadata.unrender();
 
-          // Remove proxy index from chain
-          const nextMetadata = listMetadata[index + 1];
-          const prevMetadata = listMetadata[index - 1];
-          const nextIndex = nextMetadata ? nextMetadata.startIndex : finalChildIndex;
-          nextIndex.setTarget(prevMetadata ? prevMetadata.endIndex : childIndex)
-          metadata.startIndex.deactivate();
-
           listMetadata.splice(index, 1);
+
+          // Remove proxy index from chain
+          updateMetadataIndexTarget(listMetadata, index, childIndex, finalChildIndex);
+          metadata.startIndex.removeTarget();
         }
       }
 
       currentData = nextData;
       for (let index = 0; index < listMetadata.length; index++) {
-        listMetadata[index]!.value.update();
+        listMetadata[index]!.value.setProperty(index);
       }
+
     }
 
     component.props.data.addUpdateListener(updateListener);
