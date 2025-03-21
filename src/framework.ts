@@ -1,6 +1,6 @@
 import { isPrimitive, childrenToArray, primitiveToString } from './util';
 import { Component, ElementNode, ComponentChild, ChildrenNodeProps } from './jsx';
-import { Value, AnyValue, InputValue, InputPropertyValue, PropertyValue, DerivedValue, IsEqual, ProxyValue, ComputedValue } from './value';
+import { Value, AnyValue, InputValue, InputPropertyValue, PropertyValue, DerivedValue, IsEqual, ProxyValue, ComputedValue, InputArrayViewValue } from './value';
 import DeriveValueListener from './DeriveValueListener';
 
 import diffList, { ACTIONS } from './diffList';
@@ -51,16 +51,25 @@ interface InputListProps<Type> {
   each: (item: InputPropertyValue<Type, any, any>) => ComponentChild,
 }
 
-type ListProps<Type> = ComputedListProps<Type> | InputListProps<Type>;
+interface InputArrayViewListProps<Type> {
+  data: InputArrayViewValue<Type>,
+  itemKey: string,
+  itemIsEqual?: IsEqual<Type>,
+  each: (item: InputPropertyValue<Type, any, any>) => ComponentChild,
+}
+
+type ListProps<Type> = ComputedListProps<Type> | InputListProps<Type> | InputArrayViewListProps<Type>;
+type ListReturn<Type> = ElementNode<ComputedListProps<Type>> | ElementNode<InputListProps<Type>> | ElementNode<InputArrayViewListProps<Type>>;
 
 export function List<Type>(props: ComputedListProps<Type>): ElementNode<ComputedListProps<Type>>;
 export function List<Type>(props: InputListProps<Type>): ElementNode<InputListProps<Type>>;
-export function List<Type>(props: ListProps<Type>): ElementNode<ComputedListProps<Type>> | ElementNode<InputListProps<Type>> {
+export function List<Type>(props: InputArrayViewListProps<Type>): ElementNode<InputArrayViewListProps<Type>>;
+export function List<Type>(props: ListProps<Type>): ListReturn<Type> {
   // Note: this is never actually called, but needed for types
   return {
     type: List,
     props: { ...props, children: [] },
-  } as ElementNode<ComputedListProps<Type>> | ElementNode<InputListProps<Type>>;
+  } as ListReturn<Type>;
 }
 
 export function permuteValues(inputs: Value<any>[], values: Value<any>[] = []) {
@@ -233,9 +242,7 @@ export function renderElement(
       }
     }
 
-    // TODO: Look into virtual event https://github.com/preactjs/preact/blob/d7b47872734eafdd3fdc55eadd97898cf4232a86/src/diff/props#L29
-    // Also: https://github.com/preactjs/preact/issues/3927
-    // TODO: Support eventListener options
+
     const events = element.props.events || {};
     for (const name in events) {
       elementNode.addEventListener(name, events[name]);
@@ -270,7 +277,6 @@ export function renderElement(
     const finalChildIndex = new ProxyValue(childIndex);
 
     const updateListener = (nextData: any[]) => {
-      // TODO: Map currentData to keys so that they can't be changed by side effects?
       const actions = diffList(currentData, nextData, component.props.itemKey);
 
       for (const action of actions) {
@@ -300,8 +306,15 @@ export function renderElement(
           const metadata = listMetadata[currentIndex]!;
           let destinationIndex = getEndIndex(listMetadata, newIndex - 1, childIndex).extract();
 
-          for (let i = metadata.startIndex.extract(); i < metadata.endIndex.extract(); i++) {
-            insertAtIndex(parentElement, destinationIndex++, parentElement.childNodes[i]! as HTMLElement | Text);
+          if (currentIndex > newIndex) {
+            for (let i = metadata.startIndex.extract(); i < metadata.endIndex.extract(); i++) {
+              insertAtIndex(parentElement, destinationIndex++, parentElement.childNodes[i]! as HTMLElement | Text);
+            }
+          }
+          else {
+            for (let i = metadata.endIndex.extract() - 1; i >= metadata.startIndex.extract(); i--) {
+              insertAtIndex(parentElement, destinationIndex--, parentElement.childNodes[i]! as HTMLElement | Text);
+            }
           }
 
           removeIndexFromChain(listMetadata, currentIndex, childIndex, finalChildIndex);
@@ -393,7 +406,7 @@ export function renderElement(
   const unrender = () => {
     if (unrenderElement) unrenderElement();
 
-    if (derivedListener) derivedListener.removeChild(newListener)
+    if (derivedListener) derivedListener.removeChild(newListener);
     for (const [input, derived] of derivedMapping.entries()) {
       input.removeDerivedValue(derived);
     }

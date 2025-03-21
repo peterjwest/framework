@@ -60,3 +60,16 @@ type InvertTuple<Type extends readonly string[]> = {
 export function createEnumNumeric<const T extends readonly string[]>(arr: T): Expand<InvertTuple<T>> {
   return Object.fromEntries(arr.map((value, index) => [value, index])) as Expand<InvertTuple<T>>;
 }
+
+/** Returns a list sorted by a function and also a list of indexes */
+export function sortWithIndexes<Type>(list: Type[], sort?: (a: Type, b: Type) => number): [Type[], number[]] {
+  const listPairs = list.map<[Type, number]>((item, i) => [item, i]);
+  listPairs.sort(sort ? (a, b) => sort(a[0], b[0]) : undefined);
+  const sorted: Type[] = [];
+  const indexes: number[] = [];
+  for (const [item, index] of listPairs) {
+    sorted.push(item);
+    indexes.push(index);
+  }
+  return [sorted, indexes];
+}

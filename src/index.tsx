@@ -32,43 +32,19 @@ export function Component({}, createState: CreateState) {
   const isReversed = createState(false);
 
   const store = createState({
-    foo: [{ name: 'a', count: 0 }, { name: 'b', count: 10 }, { name: 'c', count: 0 }],
+    list: [{ name: 'a', count: 2 }, { name: 'b', count: 2 }, { name: 'c', count: 2 }],
     bar: { zim: 'x' },
   })
-  const foo = store.get('foo')
+  const list = store.get('list')
+  const listSorted = list.sorted((a, b) => b.count - a.count);
 
-  // const bar = store.get('bar');
-  // const zim = bar.get('zim');
-  // const firstItem = foo.get(0);
-
-  // store.addUpdateListener((value) => console.log('store', value));
-  // bar.addUpdateListener((value) => console.log('bar', value));
-  // zim.addUpdateListener((value) => console.log('zim', value));
-
-  // console.log('change zim:');
-  // zim.change('y');
-
-  // console.log('change store.bar.zim:');
-  // store.change({ ...store.extract(), bar: { zim: 'z' }})
-
-  // console.log('change foo[0]:');
-  // firstItem.change({ name: 'a', count: 1});
-
-  // console.log(store.extract().foo);
-
-
-  // TODO: Async
-  // const results = search.debounce(100).computed(
-  //   async (search, abortSignal) => fetch(`/search?query=${search}`, { signal: abortSignal }),
-  // );
   const results = Value.computed([search, count], (search, count) =>
     ({ success: true, data: Array(Math.max(0, count)).fill(undefined).map((_, index) => ({ id: index, name: search })) })
   );
 
-  // TODO: Create sorted view value
   const resultsSorted = Value.computed([results, isReversed], (results, isReversed) => {
     return isReversed ? results.data.slice(0).reverse() : results.data;
-  })
+  });
 
   const firstName = fullName.computed((fullName) => fullName.split(' ')[0]);
   const ratio = Value.computed([search, count], (search, count) => search.length / count);
@@ -89,7 +65,7 @@ export function Component({}, createState: CreateState) {
             <option value="cabbage">Cabbage</option>
           </select>
           <input type="checkbox" events={{ input: isReversed.bind('checked') }}/>
-          {/* TODO: Fix checked property */}
+
           <input type="checkbox" checked={isReversed}events={{ input: isReversed.bind('checked') }}/>
           <div>{isReversed}</div>
           <input type="datetime-local" events={{ input: date.bind('value', (value) => new Date(value)) }}/>
@@ -130,11 +106,12 @@ export function Component({}, createState: CreateState) {
         )}
         else={() => <div>Loading!</div>}
       />
-      <List data={foo} itemKey={'id'} each={(item) => {
+      <List data={listSorted} itemKey={'id'} each={(item) => {
         const count = item.get('count');
         return <>
           <h4>Number: {item.get('name')}</h4>
-          <p>{count} <button events={{ click: () => count.change(count.extract() + 1)}}>Increment</button></p>
+          <p>{count} <button events={{ click: () => count.change(count.extract() + 1)}}>Increment {item.get('name')}</button></p>
+          <span>{item.get('name')}: <input type="number" value={count} events={{ change: count.bind('value', Number)}}/></span>
         </>;
       }} />
     </article>
@@ -144,37 +121,3 @@ export function Component({}, createState: CreateState) {
 const listener = new DeriveValueListener([]);
 (document as any).listener = listener;
 renderElement(<Component/>, document.body, new StateWatcher(), new Value(0), listener);
-
-// const store = createState({
-//   results: [],
-// });
-
-// const data = query.computed(async (query, previous, cancel) => keyBy(await api.get(query, cancel), 'id'));
-
-// data.inProgress(); // ComputedValue<boolean>
-
-// store.get('results').populate([data], (previousResults, data) => {
-//   return previousResults.map((result) => ({ ...result, data: data[result.id] }));
-//   // return update(previousResults, '[].data', (result) => data[result.id]))
-// });
-
-// // TODO: Look into Rambda
-
-// const x: ProxyValue<Type> = store.get('x');
-// store.proxies = {
-//   x,
-// }
-// const y: ProxyValue<Type> = store.get(0);
-// store.listProxies = [
-//   y,
-// ]
-
-// on update:
-//   loop through proxies:
-//     update to new value if not isEqual
-//   loop through list proxies:
-//     update to new value if not isEqual
-//       [[what if undefined?]]
-
-// on list move:
-  // move list proxy to correct index

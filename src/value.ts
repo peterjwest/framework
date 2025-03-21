@@ -1,4 +1,4 @@
-import { strictEquals, TargetedEvent } from './util';
+import { strictEquals, sortWithIndexes, TargetedEvent } from './util';
 
 /** Function interface to check if two values are considered equal */
 export interface IsEqual<Type> {
@@ -11,13 +11,21 @@ type ChangeValue<Type> = (Type extends Function ? ChangeFunction<Type> : Type) |
 /** Extracts Type from Value<Type> */
 export type ExtractValue<Type> = Type extends Value<infer X> ? X : never;
 
+export type SortCompare<Type> = Type extends Array<infer Item> ? (a: Item, b: Item) => number : never;
+
 /** Extracts each Type from a tuple of Value<Type> */
 type ExtractValues<Type extends Value<unknown>[]> = {
   [Index in keyof Type]: ExtractValue<Type[Index]>;
 } & {length: Type['length']};
 
 /** Value which is derived from another Value */
-export type DerivedValue<Type> = ProxyValue<Type> | ComputedValue<Type> | InputPropertyValue<Type, any, any> | PropertyValue<Type, any, any>;
+export type DerivedValue<Type> = (
+  ProxyValue<Type> |
+  ComputedValue<Type> |
+  InputPropertyValue<Type, any, any> |
+  PropertyValue<Type, any, any> |
+  InputArrayViewValue<Type>
+);
 
 export type AnyValue<Type> = Value<Type> | InputValue<Type>;
 
@@ -106,8 +114,6 @@ export class Value<Type> {
   computed<ResultType>(compute: (value: Type) => ResultType): ComputedValue<ResultType> {
     return Value.computed([this], compute);
   }
-
-  // TODO: Debounce/async
 }
 
 export class ComparableValue<Type> extends Value<Type> {
@@ -158,8 +164,13 @@ export class InputValue<Type> extends ComparableValue<Type> {
   }
 
   /** Returns a new InputPropertyValue for this Value */
-  get<Key extends keyof Type>(path: Key, isEqual?: IsEqual<Type[Key]>): InputPropertyValue<Type[Key], Type, Key> {
-    return new InputPropertyValue(this, path, isEqual);
+  get<Key extends keyof Type>(property: Key, isEqual?: IsEqual<Type[Key]>): InputPropertyValue<Type[Key], Type, Key> {
+    return new InputPropertyValue(this, property, isEqual);
+  }
+
+  sorted(sort?: SortCompare<Type>): Type extends Array<infer Item> ? InputArrayViewValue<Item> : never {
+    if (!Array.isArray(this.value)) throw new Error('sorted() can only be called on an InputValue which contains an array');
+    return new InputArrayViewValue(this as any, sort) as any;
   }
 
   /**
@@ -206,13 +217,13 @@ export class InputPropertyValue<Type extends ParentType[Key], ParentType, Key ex
   property: Key;
 
   constructor(
-    parent: InputValue<ParentType>,
+    parent: InputValue<ParentType> | InputArrayViewValue<ParentType extends Array<infer Item> ? Item : never>,
     property: Key,
     isEqual: IsEqual<Type> = strictEquals,
   ) {
-    super(parent.extract()[property] as Type, isEqual);
+    super((parent as InputValue<ParentType>).extract()[property] as Type, isEqual);
     this.property = property;
-    this.parent = parent;
+    this.parent = parent as InputValue<ParentType>;
     this.parent.addPropertyValue(this);
   }
 
@@ -322,5 +333,49 @@ export class PropertyValue<Type extends ParentType[Key], ParentType, Key extends
 
     this.callUpdateListeners();
     this.updateDerivedValues();
+  }
+}
+
+
+export class InputArrayViewValue<Item> extends Value<Item[]> {
+  list: InputValue<Item[]>;
+  indexes: number[];
+  sort?: (a: Item, b: Item) => number;
+
+  constructor(list: InputValue<Item[]>, sort?: (a: Item, b: Item) => number) {
+    const [sorted, indexes] = sortWithIndexes(list.extract(), sort);
+    super(sorted);
+    this.indexes = indexes;
+    this.list = list;
+    this.sort = sort;
+    list.addDerivedValue(this);
+  }
+
+  update() {
+    const [sorted, indexes] = sortWithIndexes(this.list.extract(), this.sort);
+    this.value = sorted;
+    this.indexes = indexes;
+  }
+
+  propagateChange() {
+    this.list.propagateChange();
+    this.callUpdateListeners();
+    this.updateDerivedValues();
+  }
+
+  addPropertyValue(value: InputPropertyValue<any, any, any>) {
+    return this.list.addPropertyValue(value);
+  }
+
+  removePropertyValue(value: InputPropertyValue<any, any, any>) {
+    return this.list.removePropertyValue(value);
+  }
+
+  /** Returns a new InputPropertyValue for this Value */
+  get<Key extends keyof Item[]>(property: Key, isEqual?: IsEqual<Item[][Key]>): InputPropertyValue<Item[][Key], Item[], Key> {
+    if (typeof property === 'number') {
+      property = this.indexes[property] as Key;
+    }
+    return new InputPropertyValue(this as any, property, isEqual);
   }
 }
