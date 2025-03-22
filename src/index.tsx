@@ -27,7 +27,7 @@ function NestedComponent({ query, key }: { query: Value<string>, key: string }, 
 export function Component({}, createState: CreateState) {
   const fullName = createState('J W');
   const search = createState('hi');
-  const count = createState(2);
+  const count = createState(3);
   const date = createState(new Date());
   const isReversed = createState(false);
 
@@ -47,17 +47,21 @@ export function Component({}, createState: CreateState) {
   });
 
   const firstName = fullName.computed((fullName) => fullName.split(' ')[0]);
-  const ratio = Value.computed([search, count], (search, count) => search.length / count);
+  const ratio = Value.computed([search, count], (search, count) => (search.length / count).toFixed(2));
 
   const resultsLength = results.get('data').get('length');
 
   return (
     <article>
-      <Section><h1>Hello {firstName} how are you?</h1><a href="/foo">Link</a></Section>
+      <Section>
+        <h1>Hello {firstName} how are you?</h1>
+        <a href="/foo">Link</a>
+      </Section>
       <>
         <input type="text" class="search-box" value={search} events={{ input: search.bind('value') }}/>
         <input type="text" class="search-box" value={search} events={{ input: search.bind('value') }}/>
         <input type="number" class="search-box" value={count} events={{ input: count.bind('value', Number) }}/>
+
         <form aria-modal={true}>
           <select id="fruit" name="fruit">
             <option value="apple">Apple</option>
@@ -76,35 +80,39 @@ export function Component({}, createState: CreateState) {
       </>
       <p>{date.computed((date) => date.toString())}</p>
       <NestedComponent key={"0"} query={search} />
+
       <Condition
         if={search.get('length')}
         then={() => (
-          <Condition
-            if={count}
-            then={() => (
-              <>
-                <div data-count={resultsLength}>
-                  Found {resultsLength} results for {search}
-                  <pre>Ratio: {ratio}</pre>
-                </div>
-                <List data={resultsSorted} itemKey={'id'} each={(item) => {
-                  const count = createState(0);
-                  const username = fullName.computed((fullName) => fullName.toLowerCase());
-                  return <>
-                    <h3>Item! {item.get('id')}</h3>
-                    <div class="item">
-                      <span>{item.get('name')} owned by {username}#{item.get('id')}  - </span>
-                      <b>{count} </b>
-                      <button events={{ click: () => count.change(count.extract() + 1)}}>Increment</button>
-                    </div>
-                  </>;
-                }} />
-              </>
-            )}
-            else={() => <ErrorMessage message={fullName}/>}
-          />
+          <>
+            <h3>Search:</h3>
+            <Condition
+              if={count}
+              then={() => (
+                <>
+                  <div data-count={resultsLength}>
+                    Found {resultsLength} results for {search}
+                    <pre>Ratio: {ratio}</pre>
+                  </div>
+                  <List data={resultsSorted} itemKey={'id'} each={(item) => {
+                    const count = createState(0);
+                    const username = fullName.computed((fullName) => fullName.toLowerCase());
+                    return <>
+                      <h3>Item! {item.get('id')}</h3>
+                      <div class="item">
+                        <span>{item.get('name')} owned by {username}#{item.get('id')}  - </span>
+                        <b>{count} </b>
+                        <button events={{ click: () => count.change(count.extract() + 1)}}>Increment</button>
+                      </div>
+                    </>;
+                  }} />
+                </>
+              )}
+              else={() => <ErrorMessage message={fullName}/>}
+            />
+          </>
         )}
-        else={() => <div>Loading!</div>}
+        else={() => <div>Enter a query</div>}
       />
       <List data={listSorted} itemKey={'id'} each={(item) => {
         const count = item.get('count');
@@ -114,10 +122,11 @@ export function Component({}, createState: CreateState) {
           <span>{item.get('name')}: <input type="number" value={count} events={{ change: count.bind('value', Number)}}/></span>
         </>;
       }} />
+      <div><cite>fin.</cite></div>
     </article>
   );
 }
 
 const listener = new DeriveValueListener([]);
 (document as any).listener = listener;
-renderElement(<Component/>, document.body, new StateWatcher(), new Value(0), listener);
+renderElement(<Component/>, document.body, new StateWatcher(), undefined, listener);

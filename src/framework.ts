@@ -1,7 +1,8 @@
 import { isPrimitive, childrenToArray, primitiveToString } from './util';
 import { Component, ElementNode, ComponentChild, ChildrenNodeProps } from './jsx';
-import { Value, AnyValue, InputValue, InputPropertyValue, PropertyValue, DerivedValue, IsEqual, ProxyValue, ComputedValue, InputArrayViewValue } from './value';
+import { Value, AnyValue, InputValue, InputPropertyValue, PropertyValue, DerivedValue, IsEqual, ComputedValue, InputArrayViewValue } from './value';
 import DeriveValueListener from './DeriveValueListener';
+import IndexRange from './IndexRange';
 
 import diffList, { ACTIONS } from './diffList';
 
@@ -89,51 +90,6 @@ export function insertAtIndex(parent: HTMLElement, index: number, element: HTMLE
   }
 }
 
-export function getStartIndex(listMetadata: ListItemMetadata[], index: number, nextChildIndex: ProxyValue<number>) {
-  return listMetadata[index]?.startIndex || nextChildIndex;
-}
-
-export function getEndIndex(listMetadata: ListItemMetadata[], index: number, prevChildIndex: Value<number>) {
-  return listMetadata[index]?.endIndex || prevChildIndex;
-}
-
-export function removeIndexFromChain(
-  listMetadata: ListItemMetadata[],
-  index: number,
-  prevChildIndex: Value<number>,
-  nextChildIndex: ProxyValue<number>,
-) {
-  const prevMetadataIndex = getEndIndex(listMetadata, index - 1, prevChildIndex);
-  const nextMetadataIndex = getStartIndex(listMetadata, index + 1, nextChildIndex);
-  nextMetadataIndex.setTarget(prevMetadataIndex);
-}
-
-export function addIndexToChain(
-  listMetadata: ListItemMetadata[],
-  index: number,
-  prevChildIndex: Value<number>,
-  nextChildIndex: ProxyValue<number>,
-) {
-  const prevMetadataIndex = getEndIndex(listMetadata, index - 1, prevChildIndex);
-  const currentMetadataStartIndex = getStartIndex(listMetadata, index, nextChildIndex);
-  currentMetadataStartIndex.setTarget(prevMetadataIndex);
-
-  const currentMetadataEndIndex = getEndIndex(listMetadata, index, prevChildIndex);
-  const nextMetadataIndex = getStartIndex(listMetadata, index + 1, nextChildIndex);
-  nextMetadataIndex.setTarget(currentMetadataEndIndex);
-}
-
-export function updateMetadataIndexTarget(
-  listMetadata: ListItemMetadata[],
-  index: number,
-  prevChildIndex: Value<number>,
-  nextChildIndex: ProxyValue<number>,
-) {
-  const currentMetadataIndex = getStartIndex(listMetadata, index, nextChildIndex);
-  const prevMetadataIndex = getEndIndex(listMetadata, index - 1, prevChildIndex);
-  currentMetadataIndex.setTarget(prevMetadataIndex);
-}
-
 /** Wrapper for createState helper to track inputs */
 export class StateWatcher {
   inputs: InputValue<any>[] = [];
@@ -155,8 +111,7 @@ type Unrender = () => void;
 
 type ListItemMetadata = {
   value: PropertyValue<any, any[], number> | InputPropertyValue<any, any[], number>
-  startIndex: ProxyValue<number>
-  endIndex: Value<number>
+  range: IndexRange
   unrender: Unrender | undefined
 }
 
@@ -184,14 +139,14 @@ export function renderElement(
   element: ComponentChild,
   parentElement: HTMLElement,
   stateWatcher = new StateWatcher(),
-  childIndex: Value<number> = new Value(0),
+  inputRange = new IndexRange(),
   derivedListener?: DeriveValueListener,
-): [Unrender | undefined, Value<number>] {
+): [Unrender | undefined, IndexRange] {
 
   if (isPrimitive(element)) {
     const textNode = document.createTextNode(primitiveToString(element));
-    insertAtIndex(parentElement, childIndex.extract(), textNode);
-    return [() => textNode.remove(), childIndex.computed((value) => value + 1)];
+    insertAtIndex(parentElement, inputRange.nextIndex(), textNode);
+    return [() => textNode.remove(), inputRange.increment()];
   }
 
   if (element instanceof Value) {
@@ -200,21 +155,21 @@ export function renderElement(
       textNode.textContent = primitiveToString(value);
     }
     element.addUpdateListener(updateListener);
-    insertAtIndex(parentElement, childIndex.extract(), textNode);
+    insertAtIndex(parentElement, inputRange.nextIndex(), textNode);
     const unrender = () => {
       element.removeUpdateListener(updateListener);
       textNode.remove();
     }
-    return [unrender, childIndex.computed((value) => value + 1)];
+    return [unrender, inputRange.increment()];
   }
 
   if (element.type === Fragment) {
     const unrenders: Unrender[] = [];
-    let nextChildIndex = childIndex;
+    let nextChildIndex = inputRange;
     for (const child of element.props.children) {
-      const [unrender, childIndex] = renderElement(child, parentElement, stateWatcher, nextChildIndex, derivedListener);
+      const [unrender, inputRange] = renderElement(child, parentElement, stateWatcher, nextChildIndex, derivedListener);
       if (unrender) unrenders.push(unrender);
-      nextChildIndex = childIndex;
+      nextChildIndex = inputRange;
     }
 
     return [() => { for (const unrender of unrenders) unrender(); }, nextChildIndex];
@@ -248,13 +203,13 @@ export function renderElement(
       elementNode.addEventListener(name, events[name]);
     }
 
-    let nextChildIndex: Value<number> = new Value(0);
+    let nextChildIndex = new IndexRange();
     for (const child of element.props.children) {
-      const [_, childIndex] = renderElement(child, elementNode, stateWatcher, nextChildIndex, derivedListener);
-      nextChildIndex = childIndex;
+      const [_, inputRange] = renderElement(child, elementNode, stateWatcher, nextChildIndex, derivedListener);
+      nextChildIndex = inputRange;
     }
 
-    insertAtIndex(parentElement, childIndex.extract(), elementNode);
+    insertAtIndex(parentElement, inputRange.nextIndex(), elementNode);
 
     const unrender = () => {
       for (const name in events) {
@@ -266,7 +221,7 @@ export function renderElement(
       elementNode.remove()
     }
 
-    return [unrender, childIndex.computed((index) => index + 1)];
+    return [unrender, inputRange.increment()];
   }
 
   if (element.type === List) {
@@ -274,53 +229,72 @@ export function renderElement(
 
     let currentData: any[] = [];
     const listMetadata: ListItemMetadata[] = [];
-    const finalChildIndex = new ProxyValue(childIndex);
+    const listRange = inputRange.next();
+    const outputRange = listRange.next();
+
+    function addToList(index: number, metadata: ListItemMetadata) {
+      listMetadata.splice(index, 0, metadata);
+      getRange(index - 1).setChild(metadata.range);
+      metadata.range.setChild(getRange(index + 1));
+    }
+
+    function removeFromList(index: number) {
+      getRange(index - 1).setChild(getRange(index + 1));
+      listMetadata.splice(index, 1);
+    }
+
+    function getRange(index: number) {
+      if (index === -1) return listRange;
+      if (index === listMetadata.length) return outputRange;
+      if (index >= 0 && index < listMetadata.length) return listMetadata[index]!.range;
+      throw new Error(`Index ${index} out of range`);
+    }
 
     const updateListener = (nextData: any[]) => {
       const actions = diffList(currentData, nextData, component.props.itemKey);
+
+      // Temporarily remove outputRange child to prevent updating all children on each action
+      const outputRangeChild = outputRange.child;
+      outputRange.child = undefined;
 
       for (const action of actions) {
         if (action[0] === ACTIONS.add) {
           const index = action[1];
           const value = component.props.data.get(index);
 
-          const startIndex = new ProxyValue(getEndIndex(listMetadata, index - 1, childIndex));
+          const itemRange = getRange(index - 1).next();
           const childComponent: ElementNode<{}> = {
             type: function ListItem() { return component.props.each(value as any); },
             props: { children: [] },
           };
-          const [unrender, endIndex] = renderElement(childComponent, parentElement, stateWatcher, startIndex, derivedListener);
+          const [unrender, renderedRange] = renderElement(childComponent, parentElement, stateWatcher, itemRange, derivedListener);
 
-          const metadata = {
-            unrender,
-            value,
-            startIndex,
-            endIndex,
-          }
-          listMetadata.splice(index, 0, metadata);
-          addIndexToChain(listMetadata, index, childIndex, finalChildIndex);
+          addToList(index, { unrender, value, range: renderedRange });
+          itemRange.updateChildren();
         }
 
         if (action[0] === ACTIONS.move) {
-          const [_, currentIndex, newIndex] = action;
+          const currentIndex = action[1];
+          const newIndex = action[2];
+
           const metadata = listMetadata[currentIndex]!;
-          let destinationIndex = getEndIndex(listMetadata, newIndex - 1, childIndex).extract();
+          const sourceRange = getRange(currentIndex);
+          let destinationIndex = getRange(newIndex).startIndex;
 
           if (currentIndex > newIndex) {
-            for (let i = metadata.startIndex.extract(); i < metadata.endIndex.extract(); i++) {
-              insertAtIndex(parentElement, destinationIndex++, parentElement.childNodes[i]! as HTMLElement | Text);
+            for (let i = sourceRange.startIndex; i < sourceRange.nextIndex(); i++) {
+               insertAtIndex(parentElement, destinationIndex++, parentElement.childNodes[i]! as HTMLElement | Text);
             }
           }
           else {
-            for (let i = metadata.endIndex.extract() - 1; i >= metadata.startIndex.extract(); i--) {
+            for (let i = sourceRange.nextIndex() - 1; i >= sourceRange.startIndex; i--) {
               insertAtIndex(parentElement, destinationIndex--, parentElement.childNodes[i]! as HTMLElement | Text);
             }
           }
 
-          removeIndexFromChain(listMetadata, currentIndex, childIndex, finalChildIndex);
-          listMetadata.splice(currentIndex, 1);
-          listMetadata.splice(newIndex, 0, metadata);
-          addIndexToChain(listMetadata, newIndex, childIndex, finalChildIndex);
+          removeFromList(currentIndex);
+          addToList(newIndex, metadata);
+          getRange(Math.min(currentIndex, newIndex) - 1).updateChildren();
         }
 
         if (action[0] === ACTIONS.remove) {
@@ -330,10 +304,14 @@ export function renderElement(
 
           if (metadata.unrender) metadata.unrender();
 
-          removeIndexFromChain(listMetadata, index, childIndex, finalChildIndex);
-          listMetadata.splice(index, 1);
+          removeFromList(index);
+          getRange(index - 1).updateChildren();
         }
       }
+
+      // Reinstate outputRange child and update children
+      outputRange.child = outputRangeChild;
+      outputRange.updateChildren();
 
       currentData = nextData;
       for (let index = 0; index < listMetadata.length; index++) {
@@ -351,38 +329,44 @@ export function renderElement(
       }
     }
 
-    return [unrender, finalChildIndex];
+    return [unrender, outputRange];
   }
 
   if (element.type === Condition) {
     const component: ElementNode<ConditionProps> = element;
 
-    const nextChildIndex = new ProxyValue(childIndex);
+    let conditionRange = inputRange.next();
+    let outputRange = conditionRange.next();
     let unrenderBlock: Unrender | undefined;
+    let renderedRange: IndexRange | undefined;
     let lastCondition: boolean | undefined;
 
     const updateListener = (condition: any) => {
-      if (lastCondition !== Boolean(condition)) {
-        const block = condition ? component.props.then : component.props.else;
-        if (unrenderBlock) {
-          unrenderBlock();
-          unrenderBlock = undefined;
-        }
+      if (lastCondition === Boolean(condition)) return;
+      lastCondition = Boolean(condition);
 
-        if (block) {
-          const component: ComponentChild = (
-            typeof block === 'function' ?
-            { type: function ConditionBlock() { return block() }, props: { children: [] }} :
-            block
-          );
-          let returnedChildIndex: Value<number>;
-          [unrenderBlock, returnedChildIndex] = renderElement(component, parentElement, stateWatcher, childIndex, derivedListener);
-          nextChildIndex.setTarget(returnedChildIndex);
-        } else {
-          nextChildIndex.setTarget(childIndex);
-        }
+      const block = condition ? component.props.then : component.props.else;
+      if (unrenderBlock) {
+        unrenderBlock();
+        unrenderBlock = undefined;
+      }
 
-        lastCondition = Boolean(condition);
+      conditionRange.count = 0;
+      if (block) {
+        const component: ComponentChild = (
+          typeof block === 'function' ?
+          { type: function ConditionBlock() { return block() }, props: { children: [] }} :
+          block
+        );
+
+        [unrenderBlock, renderedRange] = renderElement(component, parentElement, stateWatcher, conditionRange, derivedListener);
+        renderedRange.setChild(outputRange);
+        renderedRange.updateChildren();
+
+      } else {
+        conditionRange.setChild(outputRange);
+        conditionRange.updateChildren();
+        if (renderedRange) renderedRange.child = undefined;
       }
     };
 
@@ -393,7 +377,7 @@ export function renderElement(
       if (unrenderBlock) unrenderBlock();
     };
 
-    return [unrender, nextChildIndex];
+    return [unrender, outputRange];
   }
 
   const processedElement = element.type(element.props, stateWatcher.createState);
@@ -401,7 +385,7 @@ export function renderElement(
   const values = permuteValues(Array.from(derivedMapping.values()), stateWatcher.extract());
 
   const newListener = new DeriveValueListener(values, derivedListener);
-  const [unrenderElement, nextChildIndex] = renderElement(processedElement, parentElement, stateWatcher, childIndex, newListener);
+  const [unrenderElement, nextChildIndex] = renderElement(processedElement, parentElement, stateWatcher, inputRange, newListener);
 
   const unrender = () => {
     if (unrenderElement) unrenderElement();

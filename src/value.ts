@@ -29,6 +29,8 @@ export type DerivedValue<Type> = (
 
 export type AnyValue<Type> = Value<Type> | InputValue<Type>;
 
+(window as any).values = []
+
 /** A signal based wrapper for values */
 export class Value<Type> {
   protected value: Type;
@@ -44,6 +46,7 @@ export class Value<Type> {
 
   constructor(value: Type) {
     this.value = value;
+    (window as any).values.push(this);
   }
 
   /** Creates a new ComputedValue derived from all inputs */
