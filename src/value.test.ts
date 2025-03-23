@@ -3,7 +3,7 @@ import assert from 'assert';
 import sinon from 'sinon';
 import assertStub from 'sinon-assert-stub';
 
-import { InputValue, Value, InputPropertyValue, ProxyValue } from './value';
+import { InputValue, Value, InputPropertyValue } from './value';
 import { TargetedEvent } from './util';
 
 describe('Value', () => {
@@ -484,23 +484,4 @@ describe('InputValue', () => {
 
     assert.strictEqual(innerValue.extract(), 'BAR');
   });
-
-  test("Creates a ProxyValue from an InputValue", () => {
-    const value = new InputValue('foo');
-    const proxyValue = new ProxyValue(value);
-
-    assert.strictEqual(proxyValue.extract(), 'foo');
-  });
-
-  test("Updates a ProxyValue when an InputValue updates", () => {
-    const value = new InputValue('foo');
-    const proxyValue = new ProxyValue(value);
-    value.change('bar');
-
-    assert.strictEqual(proxyValue.extract(), 'bar');
-  });
-
-  test("Updates a ProxyValue target", () => {});
-  test("Gets an InputPropertyValue from a ProxyValue", () => {});
-  test("Deactivates a ProxyValue", () => {});
 });

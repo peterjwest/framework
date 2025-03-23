@@ -20,7 +20,6 @@ type ExtractValues<Type extends Value<unknown>[]> = {
 
 /** Value which is derived from another Value */
 export type DerivedValue<Type> = (
-  ProxyValue<Type> |
   ComputedValue<Type> |
   InputPropertyValue<Type, any, any> |
   PropertyValue<Type, any, any> |
@@ -28,8 +27,6 @@ export type DerivedValue<Type> = (
 );
 
 export type AnyValue<Type> = Value<Type> | InputValue<Type>;
-
-(window as any).values = []
 
 /** A signal based wrapper for values */
 export class Value<Type> {
@@ -46,7 +43,6 @@ export class Value<Type> {
 
   constructor(value: Type) {
     this.value = value;
-    (window as any).values.push(this);
   }
 
   /** Creates a new ComputedValue derived from all inputs */
@@ -278,34 +274,6 @@ export class ComputedValue<Type> extends ComparableValue<Type> {
 
     this.callUpdateListeners();
     this.updateDerivedValues();
-  }
-}
-
-export class ProxyValue<Type> extends Value<Type> {
-  target: Value<Type>;
-
-  constructor(target: Value<Type>) {
-    super(target.extract());
-    this.target = target;
-    this.target.addDerivedValue(this);
-  }
-
-  setTarget(target: Value<Type>) {
-    if (this.target) this.target.removeDerivedValue(this);
-    this.target = target;
-    this.target.addDerivedValue(this);
-    this.update();
-  }
-
-  update() {
-    this.value = this.target.extract();
-
-    this.callUpdateListeners();
-    this.updateDerivedValues();
-  }
-
-  removeTarget() {
-    this.target.removeDerivedValue(this);
   }
 }
 
