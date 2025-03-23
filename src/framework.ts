@@ -161,7 +161,8 @@ export function renderElement(
   }
 
   if (element.type === List) {
-    return renderList(element, parentElement, stateWatcher, inputRange, derivedListener);
+    const listManager = new ListIndexManager(inputRange);
+    return renderList(element, parentElement, listManager, stateWatcher, derivedListener);
   }
 
   if (element.type === Condition) {
@@ -307,8 +308,8 @@ function renderCondition(
       [unrenderBlock, renderedRange] = renderElement(component, parentElement, stateWatcher, conditionRange, derivedListener);
       renderedRange.setChild(outputRange);
       renderedRange.updateChildren();
-
-    } else {
+    }
+    else {
       conditionRange.setChild(outputRange);
       conditionRange.updateChildren();
       if (renderedRange) renderedRange.child = undefined;
@@ -328,16 +329,14 @@ function renderCondition(
 function renderList(
   component: ElementNode<ComputedListProps<unknown>> | ElementNode<InputListProps<unknown>>,
   parentElement: HTMLElement,
+  listManager: ListIndexManager,
   stateWatcher = new StateWatcher(),
-  inputRange = new IndexRange(),
   derivedListener?: DeriveValueListener,
 ): [Unrender, IndexRange] {
-  const listManager = new ListIndexManager(inputRange.next());
   let currentData: any[] = [];
 
   const updateListener = (nextData: any[]) => {
     const actions = diffList(currentData, nextData, component.props.itemKey);
-
     const endBatch = listManager.startBatch();
 
     for (const action of actions) {
