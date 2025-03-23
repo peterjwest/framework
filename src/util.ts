@@ -73,3 +73,5 @@ export function sortWithIndexes<Type>(list: Type[], sort?: (a: Type, b: Type) =>
   }
   return [sorted, indexes];
 }
+
+export type Unrender = () => void;

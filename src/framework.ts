@@ -1,8 +1,9 @@
-import { isPrimitive, childrenToArray, primitiveToString } from './util';
+import { isPrimitive, childrenToArray, primitiveToString, Unrender } from './util';
 import { Component, ElementNode, ComponentChild, ChildrenNodeProps } from './jsx';
 import { Value, AnyValue, InputValue, InputPropertyValue, PropertyValue, DerivedValue, IsEqual, ComputedValue, InputArrayViewValue } from './value';
 import DeriveValueListener from './DeriveValueListener';
 import IndexRange from './IndexRange';
+import ListIndexManager from './ListIndexManager';
 
 import diffList, { ACTIONS } from './diffList';
 
@@ -105,14 +106,6 @@ export class StateWatcher {
     this.inputs = [];
     return inputs;
   }
-}
-
-type Unrender = () => void;
-
-type ListItemMetadata = {
-  value: PropertyValue<any, any[], number> | InputPropertyValue<any, any[], number>
-  range: IndexRange
-  unrender: Unrender | undefined
 }
 
 /** Maps a property value before applying to the DOM */
@@ -226,50 +219,27 @@ export function renderElement(
 
   if (element.type === List) {
     const component: ElementNode<ComputedListProps<unknown>> | ElementNode<InputListProps<unknown>> = element;
-
+    const listManager = new ListIndexManager(inputRange.next());
     let currentData: any[] = [];
-    const listMetadata: ListItemMetadata[] = [];
-    const listRange = inputRange.next();
-    const outputRange = listRange.next();
-
-    function addToList(index: number, metadata: ListItemMetadata) {
-      listMetadata.splice(index, 0, metadata);
-      getRange(index - 1).setChild(metadata.range);
-      metadata.range.setChild(getRange(index + 1));
-    }
-
-    function removeFromList(index: number) {
-      getRange(index - 1).setChild(getRange(index + 1));
-      listMetadata.splice(index, 1);
-    }
-
-    function getRange(index: number) {
-      if (index === -1) return listRange;
-      if (index === listMetadata.length) return outputRange;
-      if (index >= 0 && index < listMetadata.length) return listMetadata[index]!.range;
-      throw new Error(`Index ${index} out of range`);
-    }
 
     const updateListener = (nextData: any[]) => {
       const actions = diffList(currentData, nextData, component.props.itemKey);
 
-      // Temporarily remove outputRange child to prevent updating all children on each action
-      const outputRangeChild = outputRange.child;
-      outputRange.child = undefined;
+      const endBatch = listManager.startBatch();
 
       for (const action of actions) {
         if (action[0] === ACTIONS.add) {
           const index = action[1];
           const value = component.props.data.get(index);
 
-          const itemRange = getRange(index - 1).next();
+          const itemRange = listManager.getRange(index - 1).next();
           const childComponent: ElementNode<{}> = {
             type: function ListItem() { return component.props.each(value as any); },
             props: { children: [] },
           };
           const [unrender, renderedRange] = renderElement(childComponent, parentElement, stateWatcher, itemRange, derivedListener);
 
-          addToList(index, { unrender, value, range: renderedRange });
+          listManager.addToList(index, { unrender, value, range: renderedRange });
           itemRange.updateChildren();
         }
 
@@ -277,9 +247,9 @@ export function renderElement(
           const currentIndex = action[1];
           const newIndex = action[2];
 
-          const metadata = listMetadata[currentIndex]!;
-          const sourceRange = getRange(currentIndex);
-          let destinationIndex = getRange(newIndex).startIndex;
+          const metadata = listManager.list[currentIndex]!;
+          const sourceRange = listManager.getRange(currentIndex);
+          let destinationIndex = listManager.getRange(newIndex).startIndex;
 
           if (currentIndex > newIndex) {
             for (let i = sourceRange.startIndex; i < sourceRange.nextIndex(); i++) {
@@ -292,44 +262,39 @@ export function renderElement(
             }
           }
 
-          removeFromList(currentIndex);
-          addToList(newIndex, metadata);
-          getRange(Math.min(currentIndex, newIndex) - 1).updateChildren();
+          listManager.removeFromList(currentIndex);
+          listManager.addToList(newIndex, metadata);
+          listManager.getRange(Math.min(currentIndex, newIndex) - 1).updateChildren();
         }
 
         if (action[0] === ACTIONS.remove) {
           const index = action[1];
-          const metadata = listMetadata[index]!;
+          const metadata = listManager.list[index]!;
           component.props.data.removePropertyValue(metadata.value as any);
 
           if (metadata.unrender) metadata.unrender();
 
-          removeFromList(index);
-          getRange(index - 1).updateChildren();
+          listManager.removeFromList(index);
+          listManager.getRange(index - 1).updateChildren();
         }
       }
 
-      // Reinstate outputRange child and update children
-      outputRange.child = outputRangeChild;
-      outputRange.updateChildren();
-
+      endBatch();
+      listManager.updateValues();
       currentData = nextData;
-      for (let index = 0; index < listMetadata.length; index++) {
-        listMetadata[index]!.value.setProperty(index);
-      }
     }
 
     component.props.data.addUpdateListener(updateListener);
 
     const unrender = () => {
-      for (const metadata of listMetadata) if (metadata.unrender) metadata.unrender();
+      for (const metadata of listManager.list) if (metadata.unrender) metadata.unrender();
       component.props.data.removeUpdateListener(updateListener);
-      for (const metadata of listMetadata) {
+      for (const metadata of listManager.list) {
         component.props.data.removePropertyValue(metadata.value as any);
       }
     }
 
-    return [unrender, outputRange];
+    return [unrender, listManager.outputRange];
   }
 
   if (element.type === Condition) {
