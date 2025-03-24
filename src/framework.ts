@@ -281,8 +281,8 @@ function renderCondition(
   inputRange = new IndexRange(),
   derivedListener?: DeriveValueListener,
 ): [Unrender, IndexRange]  {
-  let conditionRange = inputRange.next();
-  let outputRange = conditionRange.next();
+  let conditionRange = inputRange.createChild();
+  let outputRange = conditionRange.createChild();
   let unrenderBlock: Unrender | undefined;
   let renderedRange: IndexRange | undefined;
   let lastCondition: boolean | undefined;
@@ -344,7 +344,7 @@ function renderList(
         const index = action[1];
         const value = component.props.data.get(index);
 
-        const itemRange = listManager.getRange(index - 1).next();
+        const itemRange = listManager.getRange(index - 1).createChild();
         const childComponent: ElementNode<{}> = {
           type: function ListItem() { return component.props.each(value as any); },
           props: { children: [] },

@@ -24,7 +24,7 @@ export default class IndexRange {
     }
 
     /** Creates a new IndexRange linked to this one */
-    next() {
+    createChild() {
         this.child = new IndexRange();
         this.child.startIndex = this.nextIndex();
         return this.child;

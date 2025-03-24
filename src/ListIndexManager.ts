@@ -22,7 +22,7 @@ export default class ListIndexManager {
 
   constructor(inputRange: IndexRange) {
     this.inputRange = inputRange;
-    this.outputRange = inputRange.next();
+    this.outputRange = inputRange.createChild();
   }
 
   /** Adds a new item to the list and IndexRange chain */
